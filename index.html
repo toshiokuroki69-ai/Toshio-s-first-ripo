@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grammar Pocket</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Grammar">
+<meta name="theme-color" content="#f3f5f2">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Noto+Sans+JP:wght@400;500;700&family=Source+Serif+4:ital,wght@0,500;1,500&display=swap">
+<style>
+/* Layout: one narrow column, a notebook page — sticky top bar, stacked cards, thumb-sized answer buttons */
+:root {
+  --bg: #f3f5f2;
+  --paper: #ffffff;
+  --ink: #18263a;
+  --muted: #5d6b78;
+  --line: #dde3e0;
+  --accent: #2b5fd9;
+  --marker: #e9f27a;
+  --ok: #1f8a4c;
+  --ok-bg: #e3f4ea;
+  --ng: #c23a32;
+  --ng-bg: #fbe6e4;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+  --font-example: "Source Serif 4", "Georgia", "Times New Roman", serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161d; --paper: #19212b; --ink: #e8edf2; --muted: #9aa8b5; --line: #2a3542;
+    --accent: #7ea2ff; --marker: #5d6420; --ok: #5fd08f; --ok-bg: #173226; --ng: #ff8b80; --ng-bg: #3a1d1b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161d; --paper: #19212b; --ink: #e8edf2; --muted: #9aa8b5; --line: #2a3542;
+  --accent: #7ea2ff; --marker: #5d6420; --ok: #5fd08f; --ok-bg: #173226; --ng: #ff8b80; --ng-bg: #3a1d1b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg);
+}
+.wrap {
+  max-width: 560px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px 40px;
+}
+header.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg);
+  display: flex; align-items: center; gap: 10px;
+  padding-block: 12px 10px;
+}
+.brand { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -0.01em; margin: 0; flex: 1; min-width: 0; }
+.brand span { background: linear-gradient(transparent 58%, var(--marker) 58%); padding: 0 2px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--paper); border-radius: 999px;
+  height: 38px; min-width: 38px; padding: 0 14px; font-size: 14px; font-weight: 500;
+}
+h2 { font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h3 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 700; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+
+/* home */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.stat b { display: block; font-family: var(--font-display); font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat small { color: var(--muted); font-size: 12px; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.primary {
+  border: 0; border-radius: var(--radius); padding: 14px; font-weight: 700; font-size: 15px;
+  background: var(--accent); color: #fff; text-align: left; line-height: 1.35;
+}
+:root[data-theme="dark"] .primary { color: #0d1420; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .primary { color: #0d1420; } }
+.primary small { display: block; font-weight: 400; font-size: 12px; opacity: 0.85; }
+.secondary {
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; font-weight: 700; font-size: 15px;
+  background: var(--paper); text-align: left; line-height: 1.35;
+}
+.secondary small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.secondary:disabled { opacity: 0.5; cursor: default; }
+.topics { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; }
+.topic {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
+  border: 0; border-top: 1px solid var(--line); background: none; text-align: left; padding: 14px 16px;
+}
+.topic:first-child { border-top: 0; }
+.topic .t { font-weight: 700; min-width: 0; }
+.topic .en { color: var(--muted); font-size: 12px; font-family: var(--font-example); font-style: italic; }
+.topic .score { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); grid-row: span 2; text-align: right; }
+.meter { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ok); }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--marker); color: var(--ink); margin-left: 6px; vertical-align: 2px; }
+
+/* lesson */
+.points { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.points li { border-left: 3px solid var(--marker); padding-left: 12px; }
+.ex { font-family: var(--font-example); font-size: 16px; display: block; margin-top: 2px; }
+.ex em { font-style: normal; background: linear-gradient(transparent 60%, var(--marker) 60%); }
+.ja { color: var(--muted); font-size: 13px; }
+
+/* quiz */
+.progress { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.progress .meter { flex: 1; height: 6px; }
+.progress .meter i { background: var(--accent); transition: width .3s; }
+.question { font-family: var(--font-example); font-size: 21px; line-height: 1.5; margin: 0; }
+.blank { display: inline-block; min-width: 3.2em; border-bottom: 2px solid var(--ink); text-align: center; }
+.blank.filled { border-bottom-color: var(--ok); color: var(--ok); font-weight: 500; }
+.choices { display: grid; gap: 8px; }
+.choice {
+  border: 1.5px solid var(--line); background: var(--paper); border-radius: var(--radius);
+  padding: 14px 16px; text-align: left; font-size: 17px; font-family: var(--font-example);
+  min-height: 52px; display: flex; align-items: center; gap: 12px;
+}
+.choice .k { font-family: var(--font-body); font-size: 12px; color: var(--muted); width: 18px; flex: none; }
+.choice.correct { border-color: var(--ok); background: var(--ok-bg); }
+.choice.wrong { border-color: var(--ng); background: var(--ng-bg); }
+.choice:disabled { cursor: default; color: var(--ink); }
+.feedback { border-radius: var(--radius); padding: 14px 16px; }
+.feedback.ok { background: var(--ok-bg); }
+.feedback.ng { background: var(--ng-bg); }
+.feedback strong { display: block; margin-bottom: 4px; }
+.feedback.ok strong { color: var(--ok); }
+.feedback.ng strong { color: var(--ng); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.speak { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 6px 12px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.speak svg { width: 14px; height: 14px; fill: currentColor; }
+.next { width: 100%; }
+
+/* result */
+.big { font-family: var(--font-display); font-weight: 800; font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; }
+.mistake { border-top: 1px solid var(--line); padding-top: 10px; }
+.mistake:first-child { border-top: 0; padding-top: 0; }
+.footer-note { color: var(--muted); font-size: 12px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <p class="brand"><span>Grammar</span> Pocket</p>
+    <button class="icon-btn" id="homeBtn" hidden>ホーム</button>
+  </header>
+  <main id="app"></main>
+</div>
+
+<script>
+// ---------- Content ----------
+// q: "___" marks the blank. a: index of the correct choice.
+const TOPICS = [
+  {
+    id: "perfect", title: "現在完了", en: "Present perfect", level: "中1〜中3",
+    points: [
+      ["形は <b>have / has + 過去分詞</b>。過去の出来事が「今」とつながっていることを表す。", "I <em>have lost</em> my key.", "鍵をなくしてしまった（今も無い）"],
+      ["用法は3つ：<b>経験</b>（ever, never, ～times）、<b>継続</b>（for, since）、<b>完了</b>（just, already, yet）。", "She <em>has lived</em> here since 2020.", "2020年からずっとここに住んでいる"],
+      ["yesterday, ago, last week など<b>過去の一点</b>を示す語とは一緒に使えない。", "I <em>finished</em> it yesterday.", "×I have finished it yesterday."],
+      ["have been to = 行ったことがある / have gone to = 行ってしまって今ここにいない。", "He <em>has gone</em> to Paris.", "彼はパリへ行ってしまった"]
+    ],
+    qs: [
+      { q: "I ___ to London three times.", c: ["have been", "went", "have gone", "am going"], a: 0, e: "three times は「経験」。経験は have been to。have gone to は「行ってしまった（今いない）」なので、主語が I だと不自然。" },
+      { q: "She ___ here since 2020.", c: ["lives", "has lived", "lived", "is living"], a: 1, e: "since 2020（2020年から今まで）は「継続」。現在完了 has lived を使う。" },
+      { q: "I ___ my homework yesterday.", c: ["have finished", "finished", "have finish", "finishing"], a: 1, e: "yesterday は過去の一点。現在完了とは一緒に使えないので過去形 finished。" },
+      { q: "___ you ever seen a ghost?", c: ["Did", "Have", "Are", "Do"], a: 1, e: "ever + 過去分詞 seen は経験を尋ねる現在完了の疑問文。Have you ever ～?" },
+      { q: "We have known each other ___ ten years.", c: ["since", "for", "during", "from"], a: 1, e: "for は「期間の長さ」（ten years）、since は「起点」（2015, last year）。" },
+      { q: "He has just ___ lunch.", c: ["eat", "ate", "eaten", "eating"], a: 2, e: "have / has の後ろは過去分詞。eat - ate - eaten。" }
+    ]
+  },
+  {
+    id: "pastperfect", title: "過去完了", en: "Past perfect", level: "高校",
+    points: [
+      ["形は <b>had + 過去分詞</b>。過去のある時点より<b>さらに前</b>の出来事を表す。", "The train <em>had left</em> when I arrived.", "着いた時には電車はもう出ていた"],
+      ["過去のある時点までの経験・継続にも使う。", "I <em>had never seen</em> snow until I was 20.", "20歳まで雪を見たことがなかった"],
+      ["進行形 <b>had been ～ing</b> は、過去の時点まで続いていた動作。", "I <em>had been waiting</em> for an hour.", "1時間待ち続けていた"]
+    ],
+    qs: [
+      { q: "When I arrived at the station, the train ___.", c: ["already left", "had already left", "has already left", "leaves"], a: 1, e: "「着いた（過去）」より前に電車が出ていた → 過去完了 had already left。" },
+      { q: "She told me she ___ the movie before.", c: ["sees", "has seen", "had seen", "is seeing"], a: 2, e: "told（過去）の時点より前の経験なので had seen。主節が過去なので時制がずれる。" },
+      { q: "I ___ sushi until I came to Japan.", c: ["have never eaten", "had never eaten", "am never eating", "never eat"], a: 1, e: "came（過去）の時点までの経験 → 過去完了。今を基準にする have never eaten は until I came と合わない。" },
+      { q: "By the time he called, I ___ for an hour.", c: ["waited", "had been waiting", "have waited", "am waiting"], a: 1, e: "電話が来た時点まで1時間待ち続けていた → 過去完了進行形 had been waiting。" },
+      { q: "I realized that I ___ my wallet at home.", c: ["leave", "had left", "have left", "am leaving"], a: 1, e: "気づいた（過去）より前に財布を置いてきた → had left。" }
+    ]
+  },
+  {
+    id: "subjunctive", title: "仮定法", en: "Conditionals", level: "高校",
+    points: [
+      ["<b>仮定法過去</b>：今の事実と反対。If + 過去形, would + 動詞の原形。be動詞は主語に関係なく were が基本。", "If I <em>were</em> rich, I <em>would travel</em> the world.", "もしお金持ちなら世界を旅するのに"],
+      ["<b>仮定法過去完了</b>：過去の事実と反対。If + had + 過去分詞, would have + 過去分詞。", "If I <em>had studied</em>, I <em>would have passed</em>.", "勉強していたら合格していたのに"],
+      ["<b>I wish</b> + 過去形 = 今そうだったらいいのに。", "I wish I <em>could</em> speak French.", "フランス語が話せたらいいのに"],
+      ["実際に起こりうる条件は普通の現在形（直説法）。", "If it <em>rains</em> tomorrow, we will stay home.", "明日雨なら家にいる"]
+    ],
+    qs: [
+      { q: "If I ___ rich, I would travel the world.", c: ["am", "were", "will be", "have been"], a: 1, e: "今の事実と反対の仮定 → 仮定法過去。be動詞は were を使う（口語では was もある）。" },
+      { q: "If I had studied harder, I ___ the exam.", c: ["would pass", "would have passed", "will pass", "passed"], a: 1, e: "If節が had studied（仮定法過去完了）なので、主節は would have + 過去分詞。" },
+      { q: "I wish I ___ speak French.", c: ["can", "could", "will", "am able"], a: 1, e: "I wish の後ろは時制を1つ過去にずらす。can → could。" },
+      { q: "If it ___ tomorrow, we will cancel the picnic.", c: ["rains", "rained", "would rain", "had rained"], a: 0, e: "実際に起こりうる条件なので普通の条件文。時・条件の副詞節では未来でも現在形 rains。" },
+      { q: "___ I you, I would accept the offer.", c: ["Were", "If", "Was", "Had"], a: 0, e: "If I were you の If を省略すると倒置して Were I you になる。" }
+    ]
+  },
+  {
+    id: "relative", title: "関係詞", en: "Relative clauses", level: "中3〜高校",
+    points: [
+      ["人には <b>who</b>、物には <b>which</b>、どちらにも <b>that</b>。", "The woman <em>who</em> lives next door is a doctor.", "隣に住む女性は医者だ"],
+      ["所有を表すのは <b>whose</b>。", "I have a friend <em>whose</em> father is an actor.", "父親が俳優の友達がいる"],
+      ["場所は <b>where</b>、時は <b>when</b>（関係副詞）。後ろが完全な文になる。", "This is the town <em>where</em> I was born.", "ここは私が生まれた町だ"],
+      ["<b>what</b> は「～すること・もの」。先行詞を含むので前に名詞を置かない。", "<em>What</em> he said surprised everyone.", "彼が言ったことは皆を驚かせた"]
+    ],
+    qs: [
+      { q: "This is the book ___ I bought yesterday.", c: ["who", "which", "where", "what"], a: 1, e: "先行詞 the book は物で、bought の目的語が欠けている → which（that も可）。" },
+      { q: "The woman ___ lives next door is a doctor.", c: ["which", "who", "whom", "whose"], a: 1, e: "先行詞は人、lives の主語が欠けている → 主格の who。" },
+      { q: "I have a friend ___ father is an actor.", c: ["who", "whose", "whom", "which"], a: 1, e: "「友達の父親」という所有関係 → whose。" },
+      { q: "This is the town ___ I was born.", c: ["which", "where", "that", "when"], a: 1, e: "I was born は欠けのない文。場所を表す先行詞なので関係副詞 where（= in which）。" },
+      { q: "___ he said surprised everyone.", c: ["That", "What", "Which", "Who"], a: 1, e: "先行詞がなく「彼が言ったこと」→ what。" }
+    ]
+  },
+  {
+    id: "articles", title: "冠詞", en: "Articles", level: "中1〜",
+    points: [
+      ["初めて話題に出る数えられる名詞の単数には <b>a / an</b>。母音の<b>音</b>で始まる語は an。", "I saw <em>an</em> elephant. / <em>an</em> hour / <em>a</em> university", "hour は h を発音しない、university は「ユ」で始まる"],
+      ["話し手と聞き手の間で「どれか分かる」ものには <b>the</b>。一度出たもの・唯一のもの。", "I bought a car. <em>The</em> car is red.", "買った車は赤い"],
+      ["楽器を演奏する時は the、交通手段の by や食事・スポーツには冠詞なし。", "play <em>the</em> piano / by bus / have lunch / play tennis", ""]
+    ],
+    qs: [
+      { q: "I saw ___ elephant at the zoo.", c: ["a", "an", "the", "（なし）"], a: 1, e: "elephant は母音の音で始まり、初めて話題に出るので an。" },
+      { q: "___ sun rises in the east.", c: ["A", "An", "The", "（なし）"], a: 2, e: "太陽は1つしかない → the。" },
+      { q: "She plays ___ piano every day.", c: ["a", "the", "an", "（なし）"], a: 1, e: "楽器を演奏するときは play the piano。" },
+      { q: "He goes to school by ___ bus.", c: ["a", "the", "（なし）", "an"], a: 2, e: "by + 交通手段は無冠詞：by bus, by train, by car。" },
+      { q: "It takes ___ hour to get there.", c: ["a", "an", "the", "（なし）"], a: 1, e: "hour の h は発音しないので母音の音で始まる → an hour。" }
+    ]
+  },
+  {
+    id: "prepositions", title: "前置詞", en: "Prepositions", level: "中1〜",
+    points: [
+      ["時の at / on / in：<b>at</b> は時刻、<b>on</b> は日・曜日、<b>in</b> は月・年・季節。", "<em>at</em> 7:00 / <em>on</em> Monday / <em>in</em> 1995", ""],
+      ["<b>by</b> は期限（～までに）、<b>until</b> は継続（～までずっと）。", "Finish it <em>by</em> Friday. / Stay <em>until</em> Friday.", "金曜までに終える／金曜までずっといる"],
+      ["<b>in</b> + 時間 = 今から～後。", "I'll be back <em>in</em> ten minutes.", "10分後に戻る"]
+    ],
+    qs: [
+      { q: "The meeting is ___ Monday.", c: ["in", "on", "at", "by"], a: 1, e: "曜日・日付には on。" },
+      { q: "I was born ___ 1995.", c: ["on", "at", "in", "for"], a: 2, e: "年・月・季節には in。" },
+      { q: "Please finish this ___ Friday.", c: ["until", "by", "in", "at"], a: 1, e: "「金曜までに（期限）」は by。until は「金曜までずっと（継続）」。" },
+      { q: "She is good ___ cooking.", c: ["in", "at", "for", "with"], a: 1, e: "be good at ～ =「～が得意だ」。" },
+      { q: "I'll be back ___ ten minutes.", c: ["after", "in", "on", "since"], a: 1, e: "今から10分後は in ten minutes。after は過去の文や「～の後」で使う。" }
+    ]
+  },
+  {
+    id: "passive", title: "受動態", en: "Passive voice", level: "中2〜",
+    points: [
+      ["形は <b>be動詞 + 過去分詞</b>。「～される」。時制は be動詞で表す。", "This bridge <em>was built</em> in 1990.", "この橋は1990年に建てられた"],
+      ["助動詞の後は <b>be + 過去分詞</b>。", "The letter <em>will be sent</em> tomorrow.", "手紙は明日送られる"],
+      ["by 以外の前置詞をとる表現もある。", "be covered <em>with</em> / be known <em>to</em> / be made <em>of</em>", ""]
+    ],
+    qs: [
+      { q: "This bridge ___ in 1990.", c: ["built", "was built", "has built", "is building"], a: 1, e: "橋は「建てられた」側で、in 1990 は過去 → was built。" },
+      { q: "English ___ all over the world.", c: ["speaks", "is spoken", "is speaking", "spoke"], a: 1, e: "英語は「話される」もの → is spoken。" },
+      { q: "The room is ___ every day.", c: ["clean", "cleaned", "cleaning", "cleans"], a: 1, e: "be動詞 + 過去分詞で受動態 → is cleaned。" },
+      { q: "The mountain is covered ___ snow.", c: ["by", "with", "of", "in"], a: 1, e: "be covered with ～ =「～で覆われている」。" },
+      { q: "The letter will ___ tomorrow.", c: ["send", "be sent", "sent", "sending"], a: 1, e: "助動詞 will の後ろは原形 be、そこに過去分詞 → will be sent。" }
+    ]
+  },
+  {
+    id: "verbals", title: "不定詞と動名詞", en: "Infinitives & gerunds", level: "中2〜高校",
+    points: [
+      ["<b>動名詞だけ</b>をとる動詞：enjoy, finish, mind, avoid, give up など。", "I enjoy <em>watching</em> movies.", ""],
+      ["<b>不定詞だけ</b>をとる動詞：want, decide, hope, plan, promise など（これからのこと）。", "She decided <em>to study</em> abroad.", ""],
+      ["両方とるが意味が変わる：remember / forget + ～ing は「（過去に）したこと」、+ to do は「（これから）すること」。", "Don't forget <em>to lock</em> the door.", "忘れずに鍵をかけて"],
+      ["stop ～ing は「～するのをやめる」、stop to do は「～するために立ち止まる」。", "He stopped <em>talking</em>.", "彼は話すのをやめた"]
+    ],
+    qs: [
+      { q: "I enjoy ___ movies.", c: ["to watch", "watching", "watch", "watched"], a: 1, e: "enjoy の後ろは動名詞のみ → watching。" },
+      { q: "She decided ___ abroad.", c: ["studying", "to study", "study", "studied"], a: 1, e: "decide の後ろは不定詞 → to study。" },
+      { q: "I remember ___ him at the party last year.", c: ["to meet", "meeting", "meet", "met"], a: 1, e: "last year =「過去にしたこと」を覚えている → remember ～ing。" },
+      { q: "Don't forget ___ the door when you leave.", c: ["locking", "to lock", "lock", "locked"], a: 1, e: "これからすること（鍵をかける）を忘れない → forget to do。" },
+      { q: "He stopped ___ when the teacher came in.", c: ["talking", "to talk", "talk", "talked"], a: 0, e: "先生が来たので話すのを「やめた」→ stop talking。stop to talk だと「話すために立ち止まった」。" }
+    ]
+  },
+  {
+    id: "comparison", title: "比較", en: "Comparatives", level: "中2〜",
+    points: [
+      ["比較級は <b>-er / more</b>、最上級は <b>the -est / the most</b>。長い語は more / most。", "heavy → <em>heavier</em> → <em>the heaviest</em>", ""],
+      ["<b>as + 原級 + as</b> =「同じくらい～」。", "He runs <em>as fast as</em> his brother.", "彼は兄と同じくらい速く走る"],
+      ["<b>The + 比較級 ～, the + 比較級 …</b> =「～すればするほど…」。", "<em>The more</em> you practice, <em>the better</em> you get.", "練習するほど上手くなる"]
+    ],
+    qs: [
+      { q: "This box is ___ than that one.", c: ["heavy", "heavier", "heaviest", "more heavy"], a: 1, e: "than があるので比較級。heavy は y を i に変えて heavier。" },
+      { q: "She is ___ student in the class.", c: ["taller", "the tallest", "tallest", "most tall"], a: 1, e: "in the class（集団の中で一番）→ 最上級 the tallest。名詞の前では the が必要。" },
+      { q: "This book is ___ interesting than that one.", c: ["more", "most", "much", "very"], a: 0, e: "interesting は長い語なので more interesting。" },
+      { q: "He runs as fast ___ his brother.", c: ["than", "as", "like", "so"], a: 1, e: "as + 原級 + as の形。" },
+      { q: "The ___ you practice, the better you get.", c: ["more", "most", "much", "many"], a: 0, e: "The + 比較級, the + 比較級 →「～すればするほど」。" }
+    ]
+  },
+  {
+    id: "modals", title: "助動詞", en: "Modal verbs", level: "中2〜高校",
+    points: [
+      ["<b>must</b> =「～しなければならない」、<b>don't have to</b> =「～する必要はない」。mustn't は「～してはいけない」。", "You <em>don't have to</em> come.", "来なくてもいい"],
+      ["推量の <b>must</b> =「～に違いない」、<b>can't</b> =「～のはずがない」。", "He <em>must</em> be at home.", "家にいるに違いない"],
+      ["<b>助動詞 + have + 過去分詞</b> で過去への推量・後悔。should have done =「～すべきだったのに」。", "You <em>should have told</em> me.", "言ってくれればよかったのに"]
+    ],
+    qs: [
+      { q: "You ___ wear a seatbelt. It's the law.", c: ["must", "may", "might", "would"], a: 0, e: "法律で決まっている義務 → must。" },
+      { q: "You ___ come if you don't want to.", c: ["mustn't", "don't have to", "can't", "shouldn't"], a: 1, e: "「来たくないなら来なくていい」→ 不必要の don't have to。mustn't は禁止。" },
+      { q: "He ___ be at home. The lights are on.", c: ["must", "can't", "mustn't", "needn't"], a: 0, e: "電気がついている → 家にいるに違いない（推量の must）。" },
+      { q: "She ___ have left already. Her bag is gone.", c: ["must", "can't", "should", "will"], a: 0, e: "バッグがない → もう帰ったに違いない。過去への推量 must have + 過去分詞。" },
+      { q: "You ___ have told me earlier!", c: ["should", "must", "can", "will"], a: 0, e: "「もっと早く言うべきだったのに」→ should have + 過去分詞（後悔・非難）。" }
+    ]
+  }
+];
+
+// ---------- Storage (per device) ----------
+const KEY = "grammar-pocket-v1";
+function loadState() {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.topics) return s; } catch (e) {}
+  return { topics: {}, wrong: [], answered: 0, correct: 0, days: [] };
+}
+function saveState() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+let state = loadState();
+
+const qid = (t, i) => t.id + ":" + i;
+function findQ(id) { const [tid, i] = id.split(":"); const t = TOPICS.find(x => x.id === tid); return t && { topic: t, q: t.qs[+i], id }; }
+function today() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+function streak() {
+  const set = new Set(state.days); let n = 0; const d = new Date();
+  if (!set.has(today())) d.setDate(d.getDate() - 1);
+  while (set.has(d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate())) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+// ---------- Speech ----------
+const canSpeak = "speechSynthesis" in window;
+function speak(text) {
+  if (!canSpeak) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US"; u.rate = 0.9;
+    const v = speechSynthesis.getVoices().find(v => v.lang === "en-US");
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+const speakIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2zM11 5.2a4 4 0 0 1 0 5.6l-.8-.8a2.8 2.8 0 0 0 0-4z"/></svg>';
+
+// ---------- Views ----------
+const app = document.getElementById("app");
+const homeBtn = document.getElementById("homeBtn");
+let quiz = null;
+
+function render(html, showHome) {
+  app.innerHTML = html;
+  homeBtn.hidden = !showHome;
+  window.scrollTo(0, 0);
+}
+
+function home() {
+  quiz = null;
+  const acc = state.answered ? Math.round(state.correct / state.answered * 100) : 0;
+  const rows = TOPICS.map(t => {
+    const s = state.topics[t.id];
+    const best = s ? s.best : 0;
+    const pct = Math.round(best / t.qs.length * 100);
+    const done = best === t.qs.length;
+    return `<button class="topic" data-topic="${t.id}">
+      <span class="t">${t.title}${done ? '<span class="pill">満点</span>' : ""}</span>
+      <span class="score">${s ? best + " / " + t.qs.length : "未学習"}</span>
+      <span class="en">${t.en} · ${t.level}</span>
+      <span class="meter"><i style="width:${pct}%"></i></span>
+    </button>`;
+  }).join("");
+  render(`<div class="stack">
+    <div class="stats">
+      <div class="stat"><b>${streak()}</b><small>連続日数</small></div>
+      <div class="stat"><b>${state.answered}</b><small>解いた問題</small></div>
+      <div class="stat"><b>${acc}<span style="font-size:15px">%</span></b><small>正答率</small></div>
+    </div>
+    <div class="actions">
+      <button class="primary" data-act="random">ランダム10問<small>全単元からミックス</small></button>
+      <button class="secondary" data-act="review" ${state.wrong.length ? "" : "disabled"}>苦手を復習<small>${state.wrong.length ? state.wrong.length + "問たまっています" : "間違えた問題がここに入ります"}</small></button>
+    </div>
+    <h3>単元</h3>
+    <div class="topics">${rows}</div>
+    <p class="footer-note">記録はこの端末のブラウザに保存されます</p>
+  </div>`, false);
+}
+
+function lesson(tid) {
+  const t = TOPICS.find(x => x.id === tid);
+  const pts = t.points.map(p => `<li>${p[0]}<span class="ex">${p[1]}</span>${p[2] ? `<span class="ja">${esc(p[2])}</span>` : ""}</li>`).join("");
+  render(`<div class="stack">
+    <div><h3>${t.en} · ${t.level}</h3><h2>${t.title}</h2></div>
+    <div class="card"><ul class="points">${pts}</ul></div>
+    <button class="primary" data-act="start" data-topic="${t.id}">クイズを始める<small>${t.qs.length}問 · 4択</small></button>
+  </div>`, true);
+}
+
+function startQuiz(ids, label, topicId) {
+  quiz = { items: ids.map(findQ).filter(Boolean), i: 0, score: 0, label, topicId, misses: [], picked: null };
+  quiz.items.forEach(it => { it.order = shuffle(it.q.c.map((_, k) => k)); });
+  question();
+}
+
+function sentence(q, fill) {
+  const [a, b] = q.q.split("___");
+  const blank = fill == null ? '<span class="blank">&nbsp;</span>' : `<span class="blank filled">${esc(fill)}</span>`;
+  return esc(a) + blank + esc(b ?? "");
+}
+function fullSentence(q) { return q.q.replace("___", q.c[q.a].replace(/（なし）/, "")).replace(/\s+/g, " ").trim(); }
+
+function question() {
+  const it = quiz.items[quiz.i];
+  const n = quiz.items.length;
+  const answered = quiz.picked != null;
+  const correct = answered && quiz.picked === it.q.a;
+  const keys = ["A", "B", "C", "D"];
+  const choices = it.order.map((k, pos) => {
+    let cls = "choice";
+    if (answered && k === it.q.a) cls += " correct";
+    else if (answered && k === quiz.picked) cls += " wrong";
+    return `<button class="${cls}" data-pick="${k}" ${answered ? "disabled" : ""}><span class="k">${keys[pos]}</span>${esc(it.q.c[k])}</button>`;
+  }).join("");
+  const fb = answered ? `<div class="feedback ${correct ? "ok" : "ng"}">
+      <strong>${correct ? "正解" : "不正解 · 正解は " + esc(it.q.c[it.q.a])}</strong>${esc(it.q.e)}
+    </div>
+    <div class="row">${canSpeak ? `<button class="speak" data-act="speak">${speakIcon}例文を聞く</button>` : ""}
+      <span class="ja">${it.topic.title}</span></div>
+    <button class="primary next" data-act="next">${quiz.i + 1 < n ? "次の問題" : "結果を見る"}</button>` : "";
+  render(`<div class="stack">
+    <div class="progress"><span>${esc(quiz.label)}</span><span class="meter"><i style="width:${(quiz.i + (answered ? 1 : 0)) / n * 100}%"></i></span><span>${quiz.i + 1} / ${n}</span></div>
+    <div class="card"><p class="question">${sentence(it.q, answered ? it.q.c[it.q.a] : null)}</p></div>
+    <div class="choices">${choices}</div>
+    ${fb}
+  </div>`, true);
+}
+
+function pick(k) {
+  const it = quiz.items[quiz.i];
+  quiz.picked = k;
+  const ok = k === it.q.a;
+  state.answered++;
+  if (ok) {
+    state.correct++; quiz.score++;
+    state.wrong = state.wrong.filter(x => x !== it.id);
+  } else {
+    quiz.misses.push(it);
+    if (!state.wrong.includes(it.id)) state.wrong.push(it.id);
+  }
+  if (!state.days.includes(today())) state.days.push(today());
+  state.days = state.days.slice(-400);
+  saveState();
+  question();
+}
+
+function next() {
+  quiz.picked = null;
+  quiz.i++;
+  if (quiz.i < quiz.items.length) return question();
+  result();
+}
+
+function result() {
+  const n = quiz.items.length;
+  if (quiz.topicId) {
+    const s = state.topics[quiz.topicId] || { best: 0, plays: 0 };
+    s.best = Math.max(s.best, quiz.score); s.plays++;
+    state.topics[quiz.topicId] = s; saveState();
+  }
+  const msg = quiz.score === n ? "全問正解。この単元は身についています。" : quiz.score >= n * 0.6 ? "いい調子。間違えた問題は「苦手を復習」に入りました。" : "解説を読み直してから、もう一度挑戦しましょう。";
+  const misses = quiz.misses.map(it => `<div class="mistake"><span class="ex">${sentence(it.q, it.q.c[it.q.a])}</span><span class="ja">${esc(it.q.e)}</span></div>`).join("");
+  render(`<div class="stack">
+    <div><h3>${esc(quiz.label)}</h3><h2>結果</h2></div>
+    <div class="card"><div class="big">${quiz.score}<span style="font-size:28px"> / ${n}</span></div><p style="margin:8px 0 0">${msg}</p></div>
+    ${misses ? `<h3>間違えた問題</h3><div class="card stack">${misses}</div>` : ""}
+    <div class="actions">
+      <button class="primary" data-act="retry">もう一度</button>
+      <button class="secondary" data-act="home">ホームへ</button>
+    </div>
+  </div>`, true);
+  quiz.retryIds = quiz.items.map(it => it.id);
+}
+
+// ---------- Events ----------
+app.addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.pick != null) return pick(+b.dataset.pick);
+  const act = b.dataset.act;
+  if (!act && b.dataset.topic) return lesson(b.dataset.topic);
+  if (act === "start") { const t = TOPICS.find(x => x.id === b.dataset.topic); return startQuiz(shuffle(t.qs.map((_, i) => qid(t, i))), t.title, t.id); }
+  if (act === "random") return startQuiz(shuffle(TOPICS.flatMap(t => t.qs.map((_, i) => qid(t, i)))).slice(0, 10), "ランダム10問");
+  if (act === "review") return startQuiz(shuffle(state.wrong).slice(0, 10), "苦手を復習");
+  if (act === "next") return next();
+  if (act === "speak") return speak(fullSentence(quiz.items[quiz.i].q));
+  if (act === "retry") { const { retryIds, label, topicId } = quiz; return startQuiz(shuffle(retryIds), label, topicId); }
+  if (act === "home") return home();
+});
+homeBtn.addEventListener("click", home);
+
+// Offline support when hosted as a standalone site (e.g. GitHub Pages)
+if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude/.test(location.hostname)) {
+  try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch (e) {}
+}
+
+home();
+</script>
+</body>
+</html>
