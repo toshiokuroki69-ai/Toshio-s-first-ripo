@@ -318,10 +318,10 @@
 
   // ---------- Battle ----------
   let B = null;
-  function startBattle(kind, areaId) {
+  function startBattle(kind, areaId, ids) {
     let foe, pool, a = AREAS.find(x => x.id === areaId);
     if (kind === "dojo") {
-      pool = shuffle(G.wrong).slice(0, 10).map(findQ).filter(Boolean);
+      pool = (ids || shuffle(G.wrong).slice(0, 10)).map(findQ).filter(Boolean);
       foe = { name: "修行のカカシ", sprite: "golem", pal: { a: "#c8a85a", b: "#8a7036" }, hp: pool.length, maxHp: pool.length, atk: 0, exp: 0, gold: 0 };
     } else {
       const base = kind === "boss" ? a.boss : a.enemy;
@@ -329,7 +329,7 @@
       pool = a.qs.map((q, i) => ({ id: qid(a, i), area: a, q }));
       foe = Object.assign({}, base, st, { maxHp: st.hp });
     }
-    B = { kind, area: a, foe, pool, deck: shuffle(pool), cur: null, done: false, earned: { exp: 0, gold: 0 } };
+    B = { kind, area: a, foe, pool, deck: shuffle(pool), cur: null, done: false, misses: [] };
     render(`<div class="battle" id="battle">
         <div class="win hud" id="bhud"></div>
         <div class="arena ${kind === "boss" ? "boss" : ""}" id="arena">
@@ -356,9 +356,16 @@
   function nextTurn() {
     if (B.kind === "dojo" && !B.deck.length) return victory();
     if (!B.deck.length) B.deck = shuffle(B.pool);
-    const item = B.deck.pop();
-    B.cur = { item, order: shuffle(item.q.c ? item.q.c.map((_, i) => i) : []), hidden: [], placed: [], tiles: item.q.t === "order" ? shuffle([...item.q.w, ...(item.q.x || [])]) : [], hint: false };
+    setQuestion(B.deck.pop(), false);
+  }
+  function setQuestion(item, retry) {
+    B.cur = { item, retry, order: shuffle(item.q.c ? item.q.c.map((_, i) => i) : []), hidden: [], placed: [], tiles: item.q.t === "order" ? shuffle([...item.q.w, ...(item.q.x || [])]) : [], hint: false };
     showQuestion();
+  }
+  function retry() {
+    B.done = false;
+    setQuestion(B.cur.item, true);
+    say("もう一度 ちょうせん！\n解説を思い出して 自分の力で答えよう。").then(() => setTimeout(showQuestion, 500));
   }
 
   function promptText(q) {
@@ -409,10 +416,14 @@
   function answer(correct, yours) {
     if (B.done) return;
     B.done = true;
-    const { item } = B.cur;
+    const { item, retry } = B.cur;
+    if (retry) return answerRetry(correct, yours);
     G.stats.answered++;
     if (correct) { G.stats.correct++; G.wrong = G.wrong.filter(x => x !== item.id); }
-    else if (!G.wrong.includes(item.id)) G.wrong.push(item.id);
+    else {
+      if (!G.wrong.includes(item.id)) G.wrong.push(item.id);
+      B.misses.push({ item, yours });
+    }
 
     let line;
     if (correct) {
@@ -436,15 +447,62 @@
     save();
     drawBattleHud();
     say(line);
+    showFeedback(correct, yours);
+  }
+  // A retry after seeing the explanation: no penalty, half damage, and the question stays in the review list.
+  function answerRetry(correct, yours) {
+    let line;
+    if (correct) {
+      sfx("ok");
+      if (B.kind !== "dojo") {
+        const dmg = Math.max(1, Math.round(power(G.lv) * 0.5));
+        B.foe.hp = Math.max(0, B.foe.hp - dmg);
+        B.canvas.classList.remove("hit"); void B.canvas.offsetWidth; B.canvas.classList.add("hit");
+        popDamage(dmg, false);
+        line = `リベンジ せいこう！\n${B.foe.name}に ${dmg}の ダメージ！\n（この問題は 修行場に のこります）`;
+      } else line = "リベンジ せいこう！\n（つぎの修行で もう一度 たしかめよう）";
+    } else {
+      sfx("ng");
+      line = "まだ おしい…\n解説と正解を もう一度 たしかめよう。";
+    }
+    drawBattleHud();
+    say(line);
+    showFeedback(correct, yours);
+  }
+  function lessonDetails(area) {
+    return `<details class="lesson-peek"><summary>ちしきの書をひらく（${esc(area.name)}）</summary>
+      ${area.lessons.map(l => `<ul class="points">${l.points.map(p => `<li>${p[0]}<span class="ex">${p[1]}</span>${p[2] ? `<span class="ja">${esc(p[2])}</span>` : ""}</li>`).join("")}</ul>`).join("")}
+    </details>`;
+  }
+  function showFeedback(correct, yours) {
+    const { item } = B.cur;
     const m = modelAnswer(item.q);
     cmdEl().innerHTML = `<div class="feedback">
+        <div class="verdict ${correct ? "ok" : "ng"}">${correct ? "○ せいかい" : "× ふせいかい"}</div>
+        ${!correct && yours ? `<div class="yours">あなたの答え：${esc(yours)}</div>` : ""}
         <div>${correct ? "" : "せいかい："}<span class="ans">${m.html}</span></div>
-        ${!correct && yours ? `<div class="yours">あなた：${esc(yours)}</div>` : ""}
-        <div>${esc(item.q.e)}</div>
+        <div class="explain"><span class="dim">かいせつ</span>${esc(item.q.e)}</div>
         ${item.q.t === "write" && item.q.ans.length > 1 ? `<div class="dim">ほかの正解例：${item.q.ans.slice(1).map(esc).join(" / ")}</div>` : ""}
-        <div class="row split">${canSpeak ? `<button class="btn" data-go="speak">▶ 英文を聞く</button>` : "<span></span>"}<button class="btn primary" data-go="after">つぎへ</button></div>
+        ${correct ? "" : lessonDetails(item.area)}
+        <div class="row split">${canSpeak ? `<button class="btn" data-go="speak">▶ 英文を聞く</button>` : "<span></span>"}
+          <span class="row">${correct ? "" : `<button class="btn" data-go="retry">もう一度ちょうせん</button>`}<button class="btn primary" data-go="after">つぎへ</button></span></div>
       </div>`;
     B.lastText = m.text;
+  }
+  // End-of-battle review of every question missed in this battle.
+  function reviewHtml() {
+    const seen = new Set();
+    const list = B.misses.filter(x => !seen.has(x.item.id) && seen.add(x.item.id));
+    if (!list.length) return "";
+    return `<div class="review"><h3>ふりかえり：まちがえた問題 ${list.length}問</h3>
+      ${list.map(({ item, yours }) => `<div class="review-item">
+        <div class="ans">${modelAnswer(item.q).html}</div>
+        ${item.q.t !== "mc" ? `<div class="ja">${esc(item.q.ja)}</div>` : ""}
+        ${yours ? `<div class="yours">あなたの答え：${esc(yours)}</div>` : ""}
+        <div>${esc(item.q.e)}</div>
+      </div>`).join("")}
+      <button class="btn primary" data-go="redo" style="width:100%;margin-top:6px">この${list.length}問に再挑戦する</button>
+    </div>`;
   }
   function popDamage(n, crit) {
     const d = document.createElement("div");
@@ -486,7 +544,7 @@
     drawBattleHud();
     cmdEl().innerHTML = "";
     for (const l of lines) { await say(l); await wait(700); }
-    cmdEl().innerHTML = `<div class="cmds"><button class="cmd" data-go="${B.area ? "areaBack" : "town"}">${B.area ? "つづける" : "町にもどる"}</button><button class="cmd" data-go="map">マップへ</button></div>`;
+    cmdEl().innerHTML = reviewHtml() + `<div class="cmds"><button class="cmd" data-go="${B.area ? "areaBack" : "town"}">${B.area ? "つづける" : "町にもどる"}</button><button class="cmd" data-go="map">マップへ</button></div>`;
   }
   function gainExp(n, lines) {
     G.exp += n;
@@ -505,7 +563,7 @@
     await say(`${G.name}は ちからつきた…`);
     await wait(700);
     await say(`教会で 目をさました。\nもちきんの半分（${lost}G）を うしなった。\nちしきの書で ふくしゅうしてから 再挑戦しよう。`);
-    cmdEl().innerHTML = `<div class="cmds"><button class="cmd" data-go="lesson" data-id="${B.area.id}">ちしきの書を読む</button><button class="cmd" data-go="map">マップへ</button></div>`;
+    cmdEl().innerHTML = reviewHtml() + `<div class="cmds"><button class="cmd" data-go="lesson" data-id="${B.area.id}">ちしきの書を読む</button><button class="cmd" data-go="map">マップへ</button></div>`;
   }
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -590,6 +648,8 @@
       }
       case "speak": return speak(B.lastText);
       case "after": return after();
+      case "retry": return retry();
+      case "redo": return startBattle("dojo", null, [...new Set(B.misses.map(x => x.item.id))]);
       case "bItems": return battleItems();
       case "bBack": return showQuestion();
       case "use": return useItem(id);
