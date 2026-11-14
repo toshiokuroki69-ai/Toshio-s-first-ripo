@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>期待値馬券ノート</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b1f24;--sub:#5d6670;--line:#dfe3e8;--acc:#0b6bcb;--buy:#0a8a4a;--buyBg:#e6f6ee;--skip:#8a8f96;--warn:#b54708;--warnBg:#fff4e5;--neg:#c0262d}
+@media (prefers-color-scheme:dark){:root{--bg:#111418;--card:#1b2026;--ink:#e8ebef;--sub:#9aa4ae;--line:#2c333b;--acc:#5aa9ff;--buy:#3ccf83;--buyBg:#123524;--skip:#79818a;--warn:#ffb163;--warnBg:#3a2a14;--neg:#ff6b72}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;padding-bottom:72px}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px}
+header h1{font-size:16px;margin:0}
+header small{color:var(--sub)}
+main{max-width:760px;margin:0 auto;padding:12px 16px}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:5;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;color:var(--sub);padding:10px 0 12px;font-size:13px;font-weight:600}
+nav button.on{color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
+.tab{display:none}.tab.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 10px}
+label{display:block;font-size:12px;color:var(--sub);margin-bottom:2px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+textarea{font-family:ui-monospace,Menlo,monospace;font-size:12px;min-height:150px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.btn{display:inline-block;border:0;border-radius:8px;padding:10px 14px;font:inherit;font-weight:700;background:var(--acc);color:#fff;margin:4px 4px 0 0}
+.btn.sub{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btn.sm{padding:6px 10px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 5px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--sub);font-weight:600;font-size:12px}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.res td{vertical-align:top;font-size:12px}.res .tag{margin-top:2px}
+.mark{font-size:17px;font-weight:800}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px}
+.tag.buy{background:var(--buyBg);color:var(--buy)}
+.tag.skip{background:var(--bg);color:var(--skip);border:1px solid var(--line)}
+.why{white-space:normal;color:var(--sub);font-size:12px;min-width:140px}
+.notice{background:var(--warnBg);color:var(--warn);border-radius:10px;padding:12px;font-weight:700}
+.big{font-size:22px;font-weight:800}
+.kpi{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.kpi div{background:var(--bg);border-radius:8px;padding:8px}
+.kpi b{display:block;font-size:18px}
+.kpi span{font-size:11px;color:var(--sub)}
+.hint{font-size:12px;color:var(--sub)}
+.slider{display:grid;grid-template-columns:96px 1fr 34px;gap:8px;align-items:center;margin:4px 0}
+.slider input{padding:0}
+.hrow{border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px}
+.hrow .grid{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+.pos{color:var(--buy)}.neg{color:var(--neg)}
+svg text{fill:var(--sub);font-size:10px}
+</style>
+</head>
+<body>
+<header><h1>期待値馬券ノート</h1><small>推定値は参考情報です。結果を保証するものではありません。</small></header>
+<main>
+
+<!-- ============ 1. レース入力 ============ -->
+<section class="tab on" id="t-input">
+  <div class="card">
+    <h2>レース情報</h2>
+    <div class="grid">
+      <div><label>日付</label><input id="r-date" type="date"></div>
+      <div><label>レース名</label><input id="r-name" placeholder="東京11R"></div>
+      <div><label>芝/ダート</label><select id="r-surface"><option>芝</option><option>ダート</option></select></div>
+      <div><label>距離(m)</label><input id="r-dist" type="number" inputmode="numeric" value="1600"></div>
+      <div><label>馬場状態</label><select id="r-going"><option>良</option><option>稍重</option><option>重</option><option>不良</option></select></div>
+      <div><label>ペース予想</label><select id="r-pace"><option>スロー</option><option selected>ミドル</option><option>ハイ</option></select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>出馬表・オッズ(CSV貼り付け)</h2>
+    <p class="hint">列:馬番,枠,馬名,騎手,斤量,脚質,コース成績,道悪成績,騎手勝率%,間隔週,単勝,複勝<br>
+    成績は「1着-2着-3着-着外」(例 2-1-0-3)。脚質=逃げ/先行/差し/追込。複勝は「1.4-2.1」のように幅で入力可。1行目が見出しなら自動で読み飛ばします。</p>
+    <textarea id="csv"></textarea>
+    <div class="row"><button class="btn" onclick="loadCSV()">CSVを読み込む</button><button class="btn sub" onclick="loadSample()">サンプルを入れる</button></div>
+  </div>
+
+  <div class="card">
+    <h2>出走馬(手入力・修正)</h2>
+    <div id="horses"></div>
+    <div class="row"><button class="btn sub" onclick="addHorse()">＋ 馬を追加</button><button class="btn sub" onclick="if(confirm('全馬を消去しますか?')){S.horses=[];renderHorses();save()}">全消去</button></div>
+  </div>
+
+  <div class="card">
+    <h2>評価の重み</h2>
+    <div id="weights"></div>
+    <h2 style="margin-top:12px">モデル設定</h2>
+    <div class="slider"><span>補正の強さ</span><input type="range" id="blend" min="0" max="100" step="5"><b id="blend-v"></b></div>
+    <p class="hint">市場オッズの確率を出発点に、点数の平均との差で上下に補正します。0%=市場のまま。強くするほど点数を信じます(過信に注意)。</p>
+    <div class="row" style="margin-top:6px"><label style="margin:0">複勝オッズ採用値</label>
+      <select id="placeMode" style="width:auto"><option value="min">下限(保守的)</option><option value="mid">中間</option></select></div>
+  </div>
+  <button class="btn" style="width:100%" onclick="analyze();show('t-result')">分析する →</button>
+</section>
+
+<!-- ============ 2. 分析結果 ============ -->
+<section class="tab" id="t-result">
+  <div id="result"><div class="card hint">まず「レース入力」で出走馬を入れて「分析する」を押してください。</div></div>
+</section>
+
+<!-- ============ 3. 買い目 ============ -->
+<section class="tab" id="t-bets">
+  <div class="card">
+    <h2>資金設定</h2>
+    <div class="grid">
+      <div><label>総資金(円)</label><input id="bankroll" type="number" inputmode="numeric" step="1000"></div>
+      <div><label>今回の予算(円・任意)</label><input id="budget" type="number" inputmode="numeric" step="100" placeholder="空欄=上限まで"></div>
+    </div>
+    <p class="hint">1レースの投資上限は総資金の5%です。予算がそれより大きくても5%で打ち切ります。</p>
+  </div>
+  <div id="bets"><div class="card hint">分析後に買い目を表示します。</div></div>
+</section>
+
+<!-- ============ 4. 収支 ============ -->
+<section class="tab" id="t-record">
+  <div id="summary"></div>
+  <div class="card">
+    <h2>記録一覧</h2>
+    <p class="hint">レース後に結果を入力してください。払戻は100円あたりではなく実際の払戻額です。</p>
+    <div class="scroll" id="records"></div>
+    <div class="row">
+      <button class="btn sub sm" onclick="exportData()">JSON書き出し</button>
+      <label class="btn sub sm" style="margin:4px 4px 0 0;color:var(--ink)">JSON読み込み<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
+      <button class="btn sub sm" onclick="if(confirm('収支記録をすべて削除しますか?')){S.records=[];save();renderRecords()}">記録を全削除</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<nav>
+  <button class="on" data-t="t-input">レース入力</button>
+  <button data-t="t-result">分析結果</button>
+  <button data-t="t-bets">買い目</button>
+  <button data-t="t-record">収支</button>
+</nav>
+
+<script>
+"use strict";
+const KEY="ev-keiba-v1";
+const FACTORS=[["course","コース適性"],["going","馬場適性"],["pace","展開"],["jockey","騎手"],["rotation","ローテ"],["weight","斤量"]];
+const STYLES=["逃げ","先行","差し","追込"];
+const PACE_FIT={スロー:{逃げ:9,先行:8,差し:4.5,追込:2.5},ミドル:{逃げ:6,先行:7,差し:6.5,追込:5},ハイ:{逃げ:2.5,先行:4.5,差し:8,追込:8.5}};
+const GOING_SEV={良:0,稍重:.5,重:.8,不良:1};
+const CAP_RATE=0.05;
+
+let S=load();
+function defaults(){return{race:{date:new Date().toISOString().slice(0,10),name:"",surface:"芝",dist:1600,going:"良",pace:"ミドル"},
+  horses:[],weights:{course:3,going:2,pace:3,jockey:2,rotation:1,weight:1},blend:50,placeMode:"min",
+  bankroll:100000,budget:"",records:[],last:null}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return Object.assign(defaults(),d)}catch(e){}return defaults()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const yen=n=>Math.round(n).toLocaleString("ja-JP")+"円";
+const pct=x=>(x*100).toFixed(1)+"%";
+
+/* ---------- tabs ---------- */
+function show(id){document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.id===id));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===id));
+  if(id==="t-bets")renderBets(); if(id==="t-record")renderRecords(); window.scrollTo(0,0)}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{if(b.dataset.t==="t-result"&&S.horses.length)analyze();show(b.dataset.t)});
+
+/* ---------- race / settings binding ---------- */
+function bindRace(){
+  const map={"r-date":"date","r-name":"name","r-surface":"surface","r-dist":"dist","r-going":"going","r-pace":"pace"};
+  for(const[id,k]of Object.entries(map)){$(id).value=S.race[k];$(id).onchange=e=>{S.race[k]=e.target.value;save()}}
+  $("weights").innerHTML=FACTORS.map(([k,n])=>`<div class="slider"><span>${n}</span><input type="range" min="0" max="5" step="0.5" data-w="${k}" value="${S.weights[k]}"><b id="w-${k}">${S.weights[k]}</b></div>`).join("");
+  document.querySelectorAll("[data-w]").forEach(el=>el.oninput=e=>{S.weights[el.dataset.w]=+e.target.value;$("w-"+el.dataset.w).textContent=e.target.value;save()});
+  const sl=(id,k,f)=>{$(id).value=S[k];$(id+"-v").textContent=f(S[k]);$(id).oninput=e=>{S[k]=+e.target.value;$(id+"-v").textContent=f(S[k]);save()}};
+  sl("blend","blend",v=>v+"%");
+  $("placeMode").value=S.placeMode;$("placeMode").onchange=e=>{S.placeMode=e.target.value;save()};
+  $("bankroll").value=S.bankroll;$("bankroll").oninput=e=>{S.bankroll=+e.target.value||0;save();renderBets()};
+  $("budget").value=S.budget;$("budget").oninput=e=>{S.budget=e.target.value;save();renderBets()};
+}
+
+/* ---------- horses ---------- */
+const HF=[["no","馬番","number"],["frame","枠","number"],["name","馬名","text"],["jockey","騎手","text"],["kg","斤量","number"],["style","脚質","style"],
+  ["course","コース成績","text"],["wet","道悪成績","text"],["jrate","騎手勝率%","number"],["interval","間隔週","number"],["win","単勝","number"],["place","複勝","text"]];
+function blankHorse(){const n=S.horses.length+1;return{no:n,frame:"",name:"",jockey:"",kg:56,style:"先行",course:"0-0-0-0",wet:"0-0-0-0",jrate:8,interval:5,win:"",place:""}}
+function addHorse(){S.horses.push(blankHorse());renderHorses();save()}
+function renderHorses(){
+  $("horses").innerHTML=S.horses.length?S.horses.map((h,i)=>`<div class="hrow"><div class="grid">${HF.map(([k,n,t])=>`<div><label>${n}</label>${
+    t==="style"?`<select data-i="${i}" data-k="${k}">${STYLES.map(s=>`<option${s===h[k]?" selected":""}>${s}</option>`).join("")}</select>`
+    :`<input data-i="${i}" data-k="${k}" type="${t==="number"?"text":"text"}" ${t==="number"?'inputmode="decimal"':""} value="${esc(h[k])}">`}</div>`).join("")}
+    <div style="align-self:end"><button class="btn sub sm" onclick="S.horses.splice(${i},1);renderHorses();save()">削除</button></div></div></div>`).join("")
+    :`<p class="hint">出走馬がいません。CSVを読み込むか「馬を追加」を押してください。</p>`;
+  document.querySelectorAll("#horses [data-k]").forEach(el=>el.onchange=e=>{S.horses[+el.dataset.i][el.dataset.k]=e.target.value;save()});
+}
+function loadCSV(){
+  const rows=$("csv").value.trim().split(/\r?\n/).map(l=>l.split(/[,\t]/).map(s=>s.trim())).filter(r=>r.length>=3);
+  const out=[];
+  for(const r of rows){ if(isNaN(parseFloat(r[0])))continue; const h=blankHorse();
+    HF.forEach(([k],j)=>{if(r[j]!==undefined&&r[j]!=="")h[k]=r[j]}); out.push(h)}
+  if(!out.length){alert("読み込める行がありませんでした。列の並びを確認してください。");return}
+  S.horses=out;renderHorses();save();alert(out.length+"頭を読み込みました。")
+}
+function loadSample(){
+  $("csv").value=`馬番,枠,馬名,騎手,斤量,脚質,コース成績,道悪成績,騎手勝率%,間隔週,単勝,複勝
+1,1,サンプルアオイ,騎手A,57,逃げ,2-1-0-2,1-0-1-1,12,4,6.0,1.8-2.6
+2,1,サンプルベニ,騎手B,56,先行,1-2-1-3,0-1-0-2,9,6,3.9,1.4-1.9
+3,2,サンプルミドリ,騎手C,57,差し,0-1-2-4,0-0-0-3,7,8,8.8,2.2-3.3
+4,2,サンプルコガネ,騎手D,55,追込,1-0-0-5,2-0-0-1,5,3,26.4,4.6-7.5
+5,3,サンプルシロガネ,騎手E,57,先行,3-1-1-1,0-0-1-1,15,5,2.6,1.1-1.4
+6,3,サンプルクロ,騎手F,56,差し,0-0-1-3,0-0-0-0,6,12,41.2,7.0-11.8
+7,4,サンプルアカネ,騎手G,54,逃げ,0-1-0-1,1-1-0-0,8,2,12.5,2.9-4.6
+8,4,サンプルムラサキ,騎手H,57,追込,0-0-0-6,0-0-0-2,4,30,98.6,14.5-24.0`;
+}
+
+/* ---------- model ---------- */
+function rec(s){const a=String(s||"").split(/[-ー‐−]/).map(x=>parseInt(x)||0);while(a.length<4)a.push(0);
+  const n=a[0]+a[1]+a[2]+a[3];return{w:a[0],t3:a[0]+a[1]+a[2],n}}
+function recScore(s){ // 0-10, shrunk toward neutral 5 (prior: top3 25%, win 8%, weight 3 starts)
+  const r=rec(s),k=3,top3=(r.t3+k*.25)/(r.n+k),win=(r.w+k*.08)/(r.n+k);
+  return clamp(5+(top3-.25)*14+(win-.08)*18,0,10)}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function rotScore(w){w=parseFloat(w);if(isNaN(w))return 5;if(w<=1)return 3.5;if(w<=2)return 5.5;if(w<=10)return 7.5;if(w<=16)return 6;if(w<=26)return 4.5;return 3}
+function parsePlace(p){const a=String(p||"").split(/[-~〜ー]/).map(parseFloat).filter(x=>!isNaN(x));
+  if(!a.length)return NaN;return S.placeMode==="min"||a.length===1?a[0]:(a[0]+a[1])/2}
+
+function factorScores(h,kgMean){
+  const sev=GOING_SEV[S.race.going]||0;
+  return{course:recScore(h.course),going:5+sev*(recScore(h.wet)-5),pace:(PACE_FIT[S.race.pace]||PACE_FIT.ミドル)[h.style]??5,
+    jockey:clamp(2+(parseFloat(h.jrate)||0)*0.45,0,10),rotation:rotScore(h.interval),weight:clamp(5-((parseFloat(h.kg)||kgMean)-kgMean)*1.2,0,10)}}
+
+function placeProbs(p,places){ // Harville
+  const n=p.length,r=new Array(n).fill(0);
+  for(let i=0;i<n;i++){let s=p[i];
+    for(let j=0;j<n;j++){if(j===i)continue;const pj=p[j],q=p[i]/(1-pj);s+=pj*q;
+      if(places>=3)for(let k=0;k<n;k++){if(k===i||k===j)continue;s+=pj*(p[k]/(1-pj))*(p[i]/(1-pj-p[k]))}}
+    r[i]=Math.min(s,1)}
+  if(places===2)for(let i=0;i<n;i++){let s=p[i];for(let j=0;j<n;j++)if(j!==i)s+=p[j]*p[i]/(1-p[j]);r[i]=Math.min(s,1)}
+  return r}
+
+function analyze(){
+  const H=S.horses.filter(h=>parseFloat(h.win)>1);
+  if(H.length<2){S.last=null;$("result").innerHTML=`<div class="card notice">単勝オッズの入った馬が2頭以上必要です。</div>`;return}
+  const kgMean=H.reduce((a,h)=>a+(parseFloat(h.kg)||0),0)/H.length;
+  const wsum=Object.values(S.weights).reduce((a,b)=>a+b,0)||1;
+  const rows=H.map(h=>{const f=factorScores(h,kgMean);let sc=0;for(const[k]of FACTORS)sc+=f[k]*S.weights[k];return{h,f,score:sc/wsum}});
+  // market prob: normalize 1/odds to remove takeout, then correct multiplicatively by score deviation
+  const inv=rows.map(r=>1/parseFloat(r.h.win)),is=inv.reduce((a,b)=>a+b,0);
+  const mean=rows.reduce((a,r)=>a+r.score,0)/rows.length, k=S.blend/100*0.8;
+  const adj=rows.map((r,i)=>inv[i]/is*Math.exp(k*(r.score-mean))),as=adj.reduce((a,b)=>a+b,0);
+  rows.forEach((r,i)=>{r.pMkt=inv[i]/is;r.pWin=adj[i]/as});
+  const places=rows.length>=8?3:rows.length>=5?2:0;
+  const pp=places?placeProbs(rows.map(r=>r.pWin),places):rows.map(()=>0);
+  const pm=places?placeProbs(rows.map(r=>r.pMkt),places):rows.map(()=>0);
+  rows.forEach(r=>{r.winOdds=parseFloat(r.h.win);r.placeOdds=places?parsePlace(r.h.place):NaN});
+  // place market implied prob (normalized so that sum = number of places); Harville bias is cancelled by the ratio
+  const allPlace=places&&rows.every(r=>r.placeOdds>1);
+  const pinv=allPlace?rows.reduce((a,r)=>a+1/r.placeOdds,0):0;
+  rows.forEach((r,i)=>{
+    r.pPlace=allPlace?Math.min(0.97,(1/r.placeOdds)*places/pinv*pp[i]/pm[i]):pp[i];
+    r.evWin=r.pWin*r.winOdds;r.evPlace=isNaN(r.placeOdds)?NaN:r.pPlace*r.placeOdds});
+  // marks: ◎○▲ by win prob, ☆ = best EV among rest with odds>=10, △ next 2 by prob
+  const byP=[...rows].sort((a,b)=>b.pWin-a.pWin);
+  byP.slice(0,3).forEach((r,i)=>r.mark="◎○▲"[i]);
+  const rest=byP.filter(r=>!r.mark);
+  const ana=rest.filter(r=>r.winOdds>=10).sort((a,b)=>Math.max(b.evWin,b.evPlace||0)-Math.max(a.evWin,a.evPlace||0))[0];
+  if(ana&&Math.max(ana.evWin,ana.evPlace||0)>=0.95)ana.mark="☆";
+  byP.filter(r=>!r.mark).slice(0,2).forEach(r=>r.mark="△");
+  rows.forEach(r=>r.why=reason(r));
+  S.last={race:{...S.race},rows:rows.map(r=>({no:r.h.no,name:r.h.name,mark:r.mark||"",why:r.why,score:r.score,pWin:r.pWin,pPlace:r.pPlace,pMkt:r.pMkt,
+    winOdds:r.winOdds,placeOdds:r.placeOdds,evWin:r.evWin,evPlace:r.evPlace})),places};
+  save();renderResult();
+}
+function reason(r){
+  const lab=Object.fromEntries(FACTORS);
+  const contrib=FACTORS.map(([k])=>({k,v:(r.f[k]-5)*S.weights[k]})).filter(x=>S.weights[x.k]>0).sort((a,b)=>b.v-a.v);
+  const good=contrib.filter(x=>x.v>1).slice(0,2).map(x=>lab[x.k]+"◎"),bad=contrib.filter(x=>x.v<-1).slice(-1).map(x=>lab[x.k]+"△");
+  const gap=r.pWin/r.pMkt;
+  const val=gap>1.15?"人気以上の評価":gap<0.87?"人気先行":"人気相応";
+  return [...good,...bad].join("・")+(good.length||bad.length?" / ":"")+val}
+
+function renderResult(){
+  const L=S.last;if(!L){return}
+  const buyN=L.rows.filter(r=>r.evWin>1||r.evPlace>1).length;
+  const sorted=[...L.rows].sort((a,b)=>b.pWin-a.pWin);
+  $("result").innerHTML=`
+  ${buyN?"":`<div class="card notice">期待値1.0を超える馬券がありません。このレースは見送り。</div>`}
+  <div class="card"><h2>${esc(L.race.name||"レース")} ${esc(L.race.surface)}${esc(L.race.dist)}m 馬場:${esc(L.race.going)} ペース:${esc(L.race.pace)}</h2>
+  <p class="hint">各欄は「推定確率 × オッズ」と期待値。1.0超を「買い」とします。${L.places?`複勝は${L.places}着内として計算。`:"出走4頭以下のため複勝は計算しません。"}</p>
+  <table class="res"><thead><tr><th>印</th><th>馬</th><th>単勝</th><th>複勝</th></tr></thead><tbody>
+  ${sorted.map(r=>`<tr><td class="mark">${r.mark}</td>
+   <td style="white-space:normal"><b>${esc(r.no)} ${esc(r.name)}</b> <span class="hint">点${r.score.toFixed(1)}</span><div class="why">${esc(r.why)}</div></td>
+   <td class="n">${pct(r.pWin)} × ${r.winOdds.toFixed(1)}<br>${evTag(r.evWin)}</td>
+   <td class="n">${L.places?pct(r.pPlace):"-"} × ${isNaN(r.placeOdds)?"-":r.placeOdds.toFixed(1)}<br>${evTag(r.evPlace)}</td></tr>`).join("")}
+  </tbody></table></div></div>
+  <button class="btn" style="width:100%" onclick="show('t-bets')">買い目を見る →</button>`;}
+function evTag(ev){if(ev==null||isNaN(ev))return"-";return`<span class="tag ${ev>1?"buy":"skip"}">${ev.toFixed(2)} ${ev>1?"買い":"見送り"}</span>`}
+
+/* ---------- bets (half Kelly) ---------- */
+function computeBets(){
+  const L=S.last;if(!L)return null;
+  const cands=[];
+  for(const r of L.rows){
+    if(r.evWin>1)cands.push({type:"単勝",no:r.no,name:r.name,mark:r.mark,p:r.pWin,odds:r.winOdds,ev:r.evWin});
+    if(r.evPlace>1)cands.push({type:"複勝",no:r.no,name:r.name,mark:r.mark,p:r.pPlace,odds:r.placeOdds,ev:r.evPlace});
+  }
+  const bank=+S.bankroll||0,cap=Math.floor(bank*CAP_RATE/100)*100;
+  const budget=S.budget===""?cap:Math.min(cap,Math.floor((+S.budget||0)/100)*100);
+  cands.forEach(c=>{const b=c.odds-1;c.kelly=Math.max(0,(c.p*b-(1-c.p))/b);c.half=c.kelly/2;c.raw=bank*c.half});
+  const total=cands.reduce((a,c)=>a+c.raw,0),scale=total>budget&&total>0?budget/total:1;
+  cands.forEach(c=>c.amount=Math.floor(c.raw*scale/100)*100);
+  cands.sort((a,b)=>b.ev-a.ev);
+  return{cands:cands,cap,budget,scaled:scale<1,sum:cands.reduce((a,c)=>a+c.amount,0)};
+}
+function renderBets(){
+  const B=computeBets();
+  if(!B){$("bets").innerHTML=`<div class="card hint">分析後に買い目を表示します。</div>`;return}
+  const act=B.cands.filter(c=>c.amount>0);
+  if(!B.cands.length){$("bets").innerHTML=`<div class="card notice">期待値1.0を超える馬券がありません。このレースは見送り。</div>`;return}
+  $("bets").innerHTML=`<div class="card">
+    <h2>提案買い目(ハーフケリー・100円単位)</h2>
+    <div class="kpi"><div><span>合計投資</span><b>${yen(B.sum)}</b></div><div><span>1R上限(5%)</span><b>${yen(B.cap)}</b></div><div><span>対象点数</span><b>${act.length}点</b></div></div>
+    ${B.scaled?`<p class="hint">ケリー基準の合計が上限/予算を超えたため、比率を保って縮小しています。</p>`:""}
+    <div class="scroll"><table><thead><tr><th>券種</th><th>印</th><th>馬番</th><th>馬名</th><th>推定確率</th><th>オッズ</th><th>期待値</th><th>金額</th></tr></thead><tbody>
+    ${B.cands.map(c=>`<tr><td>${c.type}</td><td class="mark">${c.mark}</td><td class="n">${esc(c.no)}</td><td>${esc(c.name)}</td><td class="n">${pct(c.p)}</td>
+      <td class="n">${c.odds.toFixed(1)}</td><td><span class="tag buy">${c.ev.toFixed(2)}</span></td><td class="n"><b>${c.amount?yen(c.amount):"100円未満"}</b></td></tr>`).join("")}
+    </tbody></table></div>
+    ${act.length?`<button class="btn" style="width:100%;margin-top:10px" onclick="saveBets()">この買い目を収支に記録</button>`
+      :`<div class="notice" style="margin-top:10px">期待値1.0超はありますが、資金に対して金額が100円未満のため、このレースは見送り。</div>`}
+    <p class="hint">期待値は推定に基づく値で、的中や利益を保証するものではありません。</p></div>`;
+}
+function saveBets(){
+  const B=computeBets(),L=S.last;if(!B)return;
+  const t=Date.now();
+  B.cands.filter(c=>c.amount>0).forEach((c,i)=>S.records.push({id:t+"-"+i,date:L.race.date,race:L.race.name,surface:L.race.surface,dist:+L.race.dist,going:L.race.going,
+    type:c.type,no:c.no,name:c.name,mark:c.mark,ev:+c.ev.toFixed(3),odds:c.odds,stake:c.amount,result:"未確定",payout:0}));
+  save();alert("記録しました。レース後に「収支」タブで結果を入力してください。");show("t-record");
+}
+
+/* ---------- records & stats ---------- */
+function setResult(id,val){const r=S.records.find(x=>x.id===id);if(!r)return;r.result=val;
+  if(val==="的中"){const def=Math.round(r.stake*r.odds);const v=prompt("払戻額(円)を入力",def);if(v===null){r.result="未確定"}else r.payout=v.trim()===""?def:(+v||0)}
+  else r.payout=0;save();renderRecords()}
+function delRec(id){S.records=S.records.filter(x=>x.id!==id);save();renderRecords()}
+function distBand(d){return d<=1400?"短距離":d<=1800?"マイル":d<=2200?"中距離":"長距離"}
+function agg(list,keyFn){const m=new Map();for(const r of list){const k=keyFn(r);const a=m.get(k)||{n:0,hit:0,stake:0,pay:0};a.n++;a.stake+=r.stake;a.pay+=r.payout;if(r.result==="的中")a.hit++;m.set(k,a)}return m}
+function renderRecords(){
+  const R=[...S.records].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  $("records").innerHTML=R.length?`<table><thead><tr><th>日付</th><th>レース</th><th>券種</th><th>馬</th><th>EV</th><th class="n">金額</th><th>結果</th><th class="n">払戻</th><th></th></tr></thead><tbody>
+   ${R.map(r=>`<tr><td>${esc(r.date)}</td><td>${esc(r.race)}</td><td>${r.type}</td><td>${esc(r.mark)}${esc(r.no)} ${esc(r.name)}</td><td class="n">${r.ev.toFixed(2)}</td>
+   <td class="n">${yen(r.stake)}</td><td><select onchange="setResult('${r.id}',this.value)" style="width:auto;padding:4px">${["未確定","的中","不的中"].map(v=>`<option${v===r.result?" selected":""}>${v}</option>`).join("")}</select></td>
+   <td class="n">${r.result==="的中"?yen(r.payout):"-"}</td><td><button class="btn sub sm" onclick="if(confirm('削除しますか?'))delRec('${r.id}')">×</button></td></tr>`).join("")}</tbody></table>`
+   :`<p class="hint">記録はまだありません。「買い目」タブから記録できます。</p>`;
+  renderSummary();
+}
+function renderSummary(){
+  const D=S.records.filter(r=>r.result!=="未確定");
+  if(!D.length){$("summary").innerHTML=`<div class="card"><h2>成績</h2><p class="hint">結果の確定した記録がまだありません。</p></div>`;return}
+  const st=D.reduce((a,r)=>a+r.stake,0),py=D.reduce((a,r)=>a+r.payout,0),hit=D.filter(r=>r.result==="的中").length;
+  const roi=py/st;
+  // cumulative balance by date order
+  const chron=[...D].sort((a,b)=>(a.date||"").localeCompare(b.date||"")||a.id.localeCompare(b.id));
+  let c=0;const pts=chron.map(r=>c+=r.payout-r.stake);
+  const groups=[["券種別",r=>r.type],["馬場別",r=>r.going],["芝ダ別",r=>r.surface],["距離別",r=>distBand(r.dist)],["期待値帯別",r=>r.ev>=1.5?"EV1.5以上":r.ev>=1.2?"EV1.2〜1.5":"EV1.0〜1.2"],["印別",r=>r.mark||"無印"]];
+  $("summary").innerHTML=`<div class="card"><h2>成績(確定 ${D.length}件)</h2>
+   <div class="kpi"><div><span>回収率</span><b class="${roi>=1?"pos":"neg"}">${(roi*100).toFixed(1)}%</b></div><div><span>収支</span><b class="${py-st>=0?"pos":"neg"}">${py-st>=0?"+":""}${yen(py-st)}</b></div>
+   <div><span>的中率</span><b>${pct(hit/D.length)}</b></div><div><span>投資額</span><b>${yen(st)}</b></div></div>
+   <h2 style="margin-top:14px">累計収支の推移</h2>${lineChart(pts)}</div>
+   ${groups.map(([t,f])=>`<div class="card"><h2>${t}の回収率</h2>${barChart(agg(D,f))}</div>`).join("")}`;
+}
+function lineChart(pts){
+  const W=320,H=140,P=30;if(pts.length<1)return"";
+  const all=[0,...pts],mn=Math.min(...all),mx=Math.max(...all),rg=mx-mn||1;
+  const x=i=>P+(W-P-8)*(i/(Math.max(all.length-1,1))),y=v=>8+(H-24)*(1-(v-mn)/rg);
+  const d=all.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1)).join("");
+  const last=pts[pts.length-1];
+  return`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="累計収支">
+   <line x1="${P}" x2="${W-8}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>
+   <text x="2" y="${y(mx)+4}">${Math.round(mx/1000)}k</text><text x="2" y="${y(mn)+4}">${Math.round(mn/1000)}k</text>
+   <path d="${d}" fill="none" stroke="${last>=0?"var(--buy)":"var(--neg)"}" stroke-width="2"/>
+   <text x="${W-8}" y="${H-2}" text-anchor="end">${all.length-1}件</text></svg>`}
+function barChart(m){
+  const items=[...m.entries()].sort((a,b)=>b[1].stake-a[1].stake);
+  const mxR=Math.max(1.5,...items.map(([,a])=>a.pay/a.stake));
+  return items.map(([k,a])=>{const r=a.pay/a.stake,w=Math.min(100,r/mxR*100),base=1/mxR*100;
+    return`<div style="margin:6px 0"><div class="row" style="justify-content:space-between;font-size:13px"><span>${esc(k)} <span class="hint">${a.n}件 的中${a.hit}</span></span><b class="${r>=1?"pos":"neg"}">${(r*100).toFixed(0)}%</b></div>
+    <div style="position:relative;height:10px;background:var(--bg);border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:${r>=1?"var(--buy)":"var(--neg)"};opacity:.8"></div>
+    <div style="position:absolute;left:${base}%;top:0;bottom:0;width:2px;background:var(--ink);opacity:.5" title="100%"></div></div></div>`}).join("")+`<p class="hint">縦線=回収率100%</p>`}
+function exportData(){const b=new Blob([JSON.stringify({records:S.records,bankroll:S.bankroll},null,1)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="keiba-records.json";a.click()}
+function importData(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{try{const d=JSON.parse(t);if(Array.isArray(d.records)){S.records=d.records;if(d.bankroll)S.bankroll=d.bankroll;save();bindRace();renderRecords();alert("読み込みました")}}catch(e){alert("読み込めませんでした")}})}
+
+/* ---------- init ---------- */
+bindRace();renderHorses();if(S.last)renderResult();
+</script>
+</body>
+</html>
