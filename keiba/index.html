@@ -57,6 +57,7 @@ svg text{fill:var(--sub);font-size:10px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:20;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;max-width:calc(100% - 32px)}
 .store{font-size:11px;color:var(--sub)}
 .btn.arm{background:var(--neg);color:#fff;border-color:var(--neg)}
+.thumb{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 .pay{width:96px;padding:4px;text-align:right}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </style>
@@ -68,6 +69,19 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 
 <!-- ============ 1. レース入力 ============ -->
 <section class="tab on" id="t-input">
+  <div class="card" id="imp-card">
+    <h2>出馬表を取り込む(写真・コピペ → CSV)</h2>
+    <p class="hint">出馬表やオッズ画面のスクリーンショット・写真を選ぶか、サイトの画面を全選択コピーして貼り付けてください。AIが読み取ってCSVにします。読み取りミスがあり得るので、必ず内容を確認してから読み込んでください。</p>
+    <div class="grid" style="grid-template-columns:1fr">
+      <div><label for="imp-img">画像(複数可:出馬表+オッズなど)</label><input id="imp-img" type="file" accept="image/*" multiple></div>
+      <div id="imp-thumbs" class="row"></div>
+      <div><label for="imp-text">またはページのテキストを貼り付け</label><textarea id="imp-text" style="min-height:90px" placeholder="出馬表ページで全選択→コピー→ここに貼り付け"></textarea></div>
+    </div>
+    <div class="row"><button class="btn" id="imp-go">AIでCSVに変換</button><button class="btn sub" id="imp-stop" hidden>中止</button></div>
+    <p class="hint" id="imp-msg"></p>
+    <div id="imp-out"></div>
+  </div>
+
   <div class="card">
     <h2>レース情報</h2>
     <div class="grid">
@@ -459,8 +473,87 @@ function importData(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{
   if(d.bankroll){S.bankroll=d.bankroll;$("bankroll").value=d.bankroll;saveBankroll()}
   inp.value="";toast(n+"件を追加しました(重複はスキップ)")})}
 
+
+/* ---------- import: photo / pasted text -> CSV via Claude ---------- */
+const CSV_HEAD="馬番,枠,馬名,騎手,斤量,脚質,コース成績,道悪成績,騎手勝率%,間隔週,単勝,複勝";
+let impFiles=[],impCtl=null,impSample=null,impCaps=null;
+function impPrompt(text){
+  return `あなたは競馬の出馬表を構造化データに変換するアシスタントです。添付画像(出馬表・オッズ画面のスクリーンショットや写真)と、下の貼り付けテキストから、出走馬の情報を読み取ってください。複数の画像は同じレースの別画面です。馬番で突き合わせて1頭1件にまとめてください。
+
+レース日(分かれば間隔週の計算に使用): ${S.race.date}
+ルール:
+- 読み取れない・載っていない項目は null にする。推測で埋めない。
+- frame=枠番, no=馬番(整数)。kg=斤量(数値)。
+- style=脚質。"逃げ","先行","差し","追込" のいずれか。明記がなければ、直近の通過順位から判断できる場合のみ推定し、できなければ null。
+- course=当該コース(同じ競馬場・同じ距離か芝ダ)の成績、wet=重・不良馬場の成績。どちらも "1着-2着-3着-着外" の形式(例 "2-1-0-3")。
+- jrate=騎手の勝率(%)。表示があれば数値で。
+- interval=前走からの間隔(週)。前走日付があればレース日から計算した週数(整数)。
+- win=単勝オッズ(数値)。place=複勝オッズ。幅があれば "1.4-2.1" の文字列。
+- 取消・除外の馬は含めない。
+- race には分かる範囲でレース名、surface("芝"または"ダート")、dist(距離m)、going("良","稍重","重","不良")を入れる。
+
+次の形のJSONだけを返してください:
+{"race":{"name":"東京11R","surface":"芝","dist":1600,"going":"良"},"horses":[{"no":1,"frame":1,"name":"馬名","jockey":"騎手","kg":57,"style":"先行","course":"1-0-1-2","wet":null,"jrate":12.5,"interval":5,"win":4.2,"place":"1.5-2.1"}]}
+
+貼り付けテキスト:
+${text?text.slice(0,30000):"(なし)"}`}
+function csvCell(v){if(v==null)return"";v=String(v).replace(/[,\n\r]/g," ").trim();return v}
+function toCSV(horses){
+  const keys=["no","frame","name","jockey","kg","style","course","wet","jrate","interval","win","place"];
+  const rows=horses.filter(h=>h&&h.no!=null).sort((a,b)=>+a.no-+b.no).map(h=>keys.map(k=>csvCell(k==="style"&&!STYLES.includes(h[k])?null:h[k])).join(","));
+  return [CSV_HEAD,...rows].join("\n")}
+function impPreview(horses){
+  const miss=k=>horses.filter(h=>h[k]==null||h[k]==="").length;
+  const notes=[["win","単勝"],["place","複勝"],["style","脚質"],["course","コース成績"],["interval","間隔"]].filter(([k])=>miss(k)).map(([k,n])=>`${n}未取得${miss(k)}頭`);
+  $("imp-out").innerHTML=`<div class="scroll"><table><thead><tr><th>番</th><th>馬名</th><th>騎手</th><th>斤量</th><th>脚質</th><th>単勝</th><th>複勝</th></tr></thead><tbody>
+   ${horses.map(h=>`<tr><td class="n">${esc(h.no)}</td><td>${esc(h.name)}</td><td>${esc(h.jockey??"")}</td><td class="n">${esc(h.kg??"")}</td><td>${esc(h.style??"-")}</td><td class="n">${esc(h.win??"-")}</td><td class="n">${esc(h.place??"-")}</td></tr>`).join("")}</tbody></table></div>
+   ${notes.length?`<p class="hint">${notes.join("・")}。空欄は手入力するか、未入力のまま(中立の評価)で分析できます。</p>`:""}
+   <p class="hint">下の「出馬表・オッズ(CSV貼り付け)」欄に入れました。確認・修正してから読み込んでください。</p>
+   <div class="row"><button class="btn" onclick="loadCSV();document.getElementById('horses').scrollIntoView({behavior:'smooth'})">このCSVを読み込む</button><button class="btn sub" onclick="copyCSV()">CSVをコピー</button></div>`}
+async function copyCSV(){try{await navigator.clipboard.writeText($("csv").value);toast("コピーしました")}catch(e){$("csv").select();toast("選択しました。長押しでコピーしてください")}}
+function impRenderThumbs(){$("imp-thumbs").innerHTML="";impFiles.forEach((f,i)=>{const im=document.createElement("img");im.className="thumb";im.alt="取り込み画像"+(i+1);im.src=URL.createObjectURL(f);$("imp-thumbs").append(im)})}
+async function impInit(){
+  $("imp-img").onchange=e=>{impFiles=[...e.target.files];const mx=impCaps?.images?.maxCount;if(mx&&impFiles.length>mx){impFiles=impFiles.slice(0,mx);toast(`画像は${mx}枚までです。先頭${mx}枚を使います`)}impRenderThumbs()};
+  $("imp-stop").onclick=()=>impCtl?.abort();
+  $("imp-go").onclick=impRun;
+  if(!window.claude?.use){$("imp-msg").textContent="AI変換はclaude.aiでこのページを開いたときに使えます。ここではCSV欄への直接貼り付けをご利用ください。";$("imp-go").disabled=true;return}
+  impSample=await window.claude.use("sample").catch(()=>null);
+  if(!impSample){$("imp-msg").textContent="この画面ではAI変換を使えません。CSV欄に直接貼り付けてください。";$("imp-go").disabled=true;return}
+  impCaps=await impSample.limits().catch(()=>null);
+  if(!impCaps?.images){$("imp-img").parentElement.hidden=true;$("imp-thumbs").hidden=true}
+  else $("imp-img").accept=impCaps.images.mediaTypes.join(",");
+}
+async function impRun(){
+  const text=$("imp-text").value.trim();
+  if(!impFiles.length&&!text){toast("画像を選ぶか、テキストを貼り付けてください");return}
+  impCtl=new AbortController();
+  $("imp-go").disabled=true;$("imp-stop").hidden=false;$("imp-out").innerHTML="";
+  $("imp-msg").textContent="読み取り中…(画像だと30秒〜1分ほどかかります)";
+  try{
+    const opts={signal:impCtl.signal};if(impFiles.length)opts.images=impFiles;
+    const d=await impSample.json(impPrompt(text),opts);
+    const horses=Array.isArray(d?.horses)?d.horses:[];
+    if(!horses.length){$("imp-msg").textContent="出走馬を読み取れませんでした。出馬表がはっきり写った画像か、テキストで試してください。";return}
+    const r=d.race||{};
+    if(r.name&&!S.race.name)S.race.name=String(r.name);
+    if(r.surface==="芝"||r.surface==="ダート")S.race.surface=r.surface;
+    if(+r.dist>0)S.race.dist=+r.dist;
+    if(["良","稍重","重","不良"].includes(r.going))S.race.going=r.going;
+    save();bindRace();
+    $("csv").value=toCSV(horses);
+    $("imp-msg").textContent=`${horses.length}頭を読み取りました。`;
+    impPreview(horses);
+  }catch(e){
+    const m={cancelled:"中止しました。",not_granted:"AIの利用が許可されませんでした。CSV欄に直接貼り付けてください。",rate_limited:"利用が集中しています。少し待ってからもう一度お試しください。",
+      image_rejected:"画像を読み込めませんでした。別の画像(JPEG/PNG)でお試しください。",invalid_json:"読み取り結果を整理できませんでした。もう一度お試しください。",
+      prompt_too_large:"テキストが長すぎます。出馬表の部分だけを貼り付けてください。",refused:"この内容は変換できませんでした。",session_expired:"ログインし直してください。"};
+    $("imp-msg").textContent=m[e?.code]||"変換に失敗しました。もう一度お試しください。";
+  }finally{$("imp-go").disabled=false;$("imp-stop").hidden=true;impCtl=null}
+}
+
 /* ---------- init ---------- */
 bindRace();renderHorses();if(S.last)renderResult();renderRecords();
+impInit();
 initStore().then(()=>{$("bankroll").value=S.bankroll;renderRecords()});
 </script>
 </body>
