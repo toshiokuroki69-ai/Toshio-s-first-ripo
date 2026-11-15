@@ -4,16 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>期待値馬券ノート</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1b1f24;--sub:#5d6670;--line:#dfe3e8;--acc:#0b6bcb;--buy:#0a8a4a;--buyBg:#e6f6ee;--skip:#8a8f96;--warn:#b54708;--warnBg:#fff4e5;--neg:#c0262d}
-@media (prefers-color-scheme:dark){:root{--bg:#111418;--card:#1b2026;--ink:#e8ebef;--sub:#9aa4ae;--line:#2c333b;--acc:#5aa9ff;--buy:#3ccf83;--buyBg:#123524;--skip:#79818a;--warn:#ffb163;--warnBg:#3a2a14;--neg:#ff6b72}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2026;--ink:#e8ebef;--sub:#9aa4ae;--line:#2c333b;--acc:#5aa9ff;--buy:#3ccf83;--buyBg:#123524;--skip:#79818a;--warn:#ffb163;--warnBg:#3a2a14;--neg:#ff6b72;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1b2026;--ink:#e8ebef;--sub:#9aa4ae;--line:#2c333b;--acc:#5aa9ff;--buy:#3ccf83;--buyBg:#123524;--skip:#79818a;--warn:#ffb163;--warnBg:#3a2a14;--neg:#ff6b72;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;padding-bottom:72px}
-header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--card)}
 header h1{font-size:16px;margin:0}
 header small{color:var(--sub)}
-main{max-width:760px;margin:0 auto;padding:12px 16px}
-nav{position:fixed;bottom:0;left:0;right:0;z-index:5;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+main{max-width:760px;margin:0 auto;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:5;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 nav button{flex:1;border:0;background:none;color:var(--sub);padding:10px 0 12px;font-size:13px;font-weight:600}
 nav button.on{color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
 .tab{display:none}.tab.on{display:block}
@@ -51,10 +54,16 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 .hrow .grid{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
 .pos{color:var(--buy)}.neg{color:var(--neg)}
 svg text{fill:var(--sub);font-size:10px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:20;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;max-width:calc(100% - 32px)}
+.store{font-size:11px;color:var(--sub)}
+.btn.arm{background:var(--neg);color:#fff;border-color:var(--neg)}
+.pay{width:96px;padding:4px;text-align:right}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </style>
 </head>
 <body>
 <header><h1>期待値馬券ノート</h1><small>推定値は参考情報です。結果を保証するものではありません。</small></header>
+<div id="toast" hidden></div>
 <main>
 
 <!-- ============ 1. レース入力 ============ -->
@@ -82,7 +91,7 @@ svg text{fill:var(--sub);font-size:10px}
   <div class="card">
     <h2>出走馬(手入力・修正)</h2>
     <div id="horses"></div>
-    <div class="row"><button class="btn sub" onclick="addHorse()">＋ 馬を追加</button><button class="btn sub" onclick="if(confirm('全馬を消去しますか?')){S.horses=[];renderHorses();save()}">全消去</button></div>
+    <div class="row"><button class="btn sub" onclick="addHorse()">＋ 馬を追加</button><button class="btn sub" onclick="armed(this,()=>{S.horses=[];renderHorses();save()})">全消去</button></div>
   </div>
 
   <div class="card">
@@ -120,12 +129,13 @@ svg text{fill:var(--sub);font-size:10px}
   <div id="summary"></div>
   <div class="card">
     <h2>記録一覧</h2>
-    <p class="hint">レース後に結果を入力してください。払戻は100円あたりではなく実際の払戻額です。</p>
+    <p class="hint">レース後に結果を選んでください。的中を選ぶと払戻額の欄が出ます(初期値=金額×オッズ。実際の払戻額に直してください)。</p>
+    <p class="store" id="store">記録の保存先を確認中…</p>
     <div class="scroll" id="records"></div>
     <div class="row">
       <button class="btn sub sm" onclick="exportData()">JSON書き出し</button>
-      <label class="btn sub sm" style="margin:4px 4px 0 0;color:var(--ink)">JSON読み込み<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
-      <button class="btn sub sm" onclick="if(confirm('収支記録をすべて削除しますか?')){S.records=[];save();renderRecords()}">記録を全削除</button>
+      <label class="btn sub sm" style="margin:4px 4px 0 0;color:var(--ink)">JSON読み込み<input id="imp" type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
+      <button class="btn sub sm" onclick="armed(this,clearRecords)">記録を全削除</button>
     </div>
   </div>
 </section>
@@ -152,7 +162,7 @@ function defaults(){return{race:{date:new Date().toISOString().slice(0,10),name:
   horses:[],weights:{course:3,going:2,pace:3,jockey:2,rotation:1,weight:1},blend:50,placeMode:"min",
   bankroll:100000,budget:"",records:[],last:null}}
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return Object.assign(defaults(),d)}catch(e){}return defaults()}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){try{const{records,...draft}=S;localStorage.setItem(KEY,JSON.stringify(draft))}catch(e){}}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const yen=n=>Math.round(n).toLocaleString("ja-JP")+"円";
@@ -173,7 +183,7 @@ function bindRace(){
   const sl=(id,k,f)=>{$(id).value=S[k];$(id+"-v").textContent=f(S[k]);$(id).oninput=e=>{S[k]=+e.target.value;$(id+"-v").textContent=f(S[k]);save()}};
   sl("blend","blend",v=>v+"%");
   $("placeMode").value=S.placeMode;$("placeMode").onchange=e=>{S.placeMode=e.target.value;save()};
-  $("bankroll").value=S.bankroll;$("bankroll").oninput=e=>{S.bankroll=+e.target.value||0;save();renderBets()};
+  $("bankroll").value=S.bankroll;$("bankroll").oninput=e=>{S.bankroll=+e.target.value||0;save();saveBankroll();renderBets()};
   $("budget").value=S.budget;$("budget").oninput=e=>{S.budget=e.target.value;save();renderBets()};
 }
 
@@ -195,8 +205,8 @@ function loadCSV(){
   const out=[];
   for(const r of rows){ if(isNaN(parseFloat(r[0])))continue; const h=blankHorse();
     HF.forEach(([k],j)=>{if(r[j]!==undefined&&r[j]!=="")h[k]=r[j]}); out.push(h)}
-  if(!out.length){alert("読み込める行がありませんでした。列の並びを確認してください。");return}
-  S.horses=out;renderHorses();save();alert(out.length+"頭を読み込みました。")
+  if(!out.length){toast("読み込める行がありませんでした。列の並びを確認してください。");return}
+  S.horses=out;renderHorses();save();toast(out.length+"頭を読み込みました。")
 }
 function loadSample(){
   $("csv").value=`馬番,枠,馬名,騎手,斤量,脚質,コース成績,道悪成績,騎手勝率%,間隔週,単勝,複勝
@@ -329,16 +339,69 @@ function renderBets(){
 function saveBets(){
   const B=computeBets(),L=S.last;if(!B)return;
   const t=Date.now();
-  B.cands.filter(c=>c.amount>0).forEach((c,i)=>S.records.push({id:t+"-"+i,date:L.race.date,race:L.race.name,surface:L.race.surface,dist:+L.race.dist,going:L.race.going,
-    type:c.type,no:c.no,name:c.name,mark:c.mark,ev:+c.ev.toFixed(3),odds:c.odds,stake:c.amount,result:"未確定",payout:0}));
-  save();alert("記録しました。レース後に「収支」タブで結果を入力してください。");show("t-record");
+  B.cands.filter(c=>c.amount>0).forEach((c,i)=>addRecord({id:t+"-"+i,date:L.race.date,race:L.race.name,surface:L.race.surface,dist:+L.race.dist,going:L.race.going,
+    type:c.type,no:String(c.no),name:c.name,mark:c.mark,ev:+c.ev.toFixed(3),odds:c.odds,stake:c.amount,result:"未確定",payout:0}));
+  toast("記録しました。レース後に「収支」タブで結果を入力してください。");show("t-record");
 }
 
+/* ---------- small UI helpers (no browser dialogs) ---------- */
+let toastT;
+function toast(msg){const el=$("toast");el.textContent=msg;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,3000)}
+function armed(btn,fn){ // two-tap confirm
+  if(btn.dataset.armed){fn();return}
+  const orig=btn.textContent;btn.dataset.armed="1";btn.classList.add("arm");btn.textContent="もう一度押すと実行";
+  setTimeout(()=>{if(btn.isConnected){delete btn.dataset.armed;btn.classList.remove("arm");btn.textContent=orig}},3000)}
+
+/* ---------- record storage: account (db capability) or this browser ---------- */
+const Store={db:null,uid:null,col:null,prof:null,mode:"local"};
+function localRecs(){try{return JSON.parse(localStorage.getItem(KEY+"-rec"))||null}catch(e){return null}}
+function saveLocalRecs(){if(Store.mode==="local")try{localStorage.setItem(KEY+"-rec",JSON.stringify({records:S.records,bankroll:S.bankroll}))}catch(e){}}
+function setStoreLabel(t){const el=$("store");if(el)el.textContent=t}
+async function initStore(){
+  const lr=localRecs()||{records:S.records||[],bankroll:S.bankroll};
+  S.records=lr.records||[];if(lr.bankroll)S.bankroll=lr.bankroll;
+  delete S.recordsLegacy;
+  setStoreLabel("保存先:この端末のブラウザのみ");
+  if(!window.claude?.use)return;
+  setStoreLabel("記録の保存先を確認中…");
+  let db=null,user=null;
+  try{[db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")])}catch(e){}
+  const uid=user?await user.id().catch(()=>null):null;
+  if(!db||!uid){setStoreLabel("保存先:この端末のブラウザのみ(アカウント保存は利用できません)");return}
+  Store.db=db;Store.uid=uid;Store.mode="db";
+  Store.prof=db.doc("data/users/"+uid+"/profile");Store.col=Store.prof.collection("bets");
+  const timer=setTimeout(()=>setStoreLabel("保存先:アカウント(接続待ち。表示が古い可能性があります)"),10000);
+  Store.col.onSnapshot(snap=>{
+    if(!snap.metadata.fromCache){clearTimeout(timer);setStoreLabel("保存先:あなたのアカウント(他の端末からも見られます)")}
+    S.records=snap.docs.map(d=>({...d.data()}));renderRecords();
+  },e=>{clearTimeout(timer);setStoreLabel("保存先:アカウント(読み込みエラー:"+e.code+")")});
+  Store.prof.onSnapshot(snap=>{const d=snap.data();if(d&&d.bankroll&&document.activeElement!==$("bankroll")){S.bankroll=d.bankroll;$("bankroll").value=d.bankroll;renderBets()}},()=>{});
+}
+function dbErr(e){toast(e&&e.code==="quota_exceeded"?"保存容量の上限です。古い記録を書き出して削除してください。":"保存に失敗しました。通信状態を確認してください。")}
+function addRecord(r){
+  if(Store.mode==="db"){Store.col.doc(r.id).set(r).catch(dbErr)}
+  else{S.records.push(r);saveLocalRecs();renderRecords()}}
+function patchRecord(id,patch){
+  const r=S.records.find(x=>x.id===id);if(!r)return;Object.assign(r,patch);
+  if(Store.mode==="db")Store.col.doc(id).update(patch).catch(dbErr);else saveLocalRecs();
+  renderRecords()}
+function delRec(id){
+  if(Store.mode==="db"){Store.col.doc(id).delete().catch(dbErr)}
+  else{S.records=S.records.filter(x=>x.id!==id);saveLocalRecs();renderRecords()}}
+async function clearRecords(){
+  if(Store.mode==="db"){for(const r of [...S.records])await Store.col.doc(r.id).delete().catch(dbErr)}
+  else{S.records=[];saveLocalRecs();renderRecords()}
+  toast("記録を削除しました")}
+let bankT;
+function saveBankroll(){
+  saveLocalRecs();
+  if(Store.mode==="db"){clearTimeout(bankT);bankT=setTimeout(()=>Store.prof.set({bankroll:S.bankroll}).catch(dbErr),800)}}
+
 /* ---------- records & stats ---------- */
-function setResult(id,val){const r=S.records.find(x=>x.id===id);if(!r)return;r.result=val;
-  if(val==="的中"){const def=Math.round(r.stake*r.odds);const v=prompt("払戻額(円)を入力",def);if(v===null){r.result="未確定"}else r.payout=v.trim()===""?def:(+v||0)}
-  else r.payout=0;save();renderRecords()}
-function delRec(id){S.records=S.records.filter(x=>x.id!==id);save();renderRecords()}
+function setResult(id,val){const r=S.records.find(x=>x.id===id);if(!r)return;
+  patchRecord(id,{result:val,payout:val==="的中"?(r.payout||Math.round(r.stake*r.odds/10)*10):0});
+  if(val==="的中")setTimeout(()=>{const el=$("pay-"+id);if(el){el.focus();el.select()}},0)}
+function setPayout(id,v){patchRecord(id,{payout:Math.max(0,Math.round(+String(v).replace(/[^\d.]/g,"")||0))})}
 function distBand(d){return d<=1400?"短距離":d<=1800?"マイル":d<=2200?"中距離":"長距離"}
 function agg(list,keyFn){const m=new Map();for(const r of list){const k=keyFn(r);const a=m.get(k)||{n:0,hit:0,stake:0,pay:0};a.n++;a.stake+=r.stake;a.pay+=r.payout;if(r.result==="的中")a.hit++;m.set(k,a)}return m}
 function renderRecords(){
@@ -346,7 +409,7 @@ function renderRecords(){
   $("records").innerHTML=R.length?`<table><thead><tr><th>日付</th><th>レース</th><th>券種</th><th>馬</th><th>EV</th><th class="n">金額</th><th>結果</th><th class="n">払戻</th><th></th></tr></thead><tbody>
    ${R.map(r=>`<tr><td>${esc(r.date)}</td><td>${esc(r.race)}</td><td>${r.type}</td><td>${esc(r.mark)}${esc(r.no)} ${esc(r.name)}</td><td class="n">${r.ev.toFixed(2)}</td>
    <td class="n">${yen(r.stake)}</td><td><select onchange="setResult('${r.id}',this.value)" style="width:auto;padding:4px">${["未確定","的中","不的中"].map(v=>`<option${v===r.result?" selected":""}>${v}</option>`).join("")}</select></td>
-   <td class="n">${r.result==="的中"?yen(r.payout):"-"}</td><td><button class="btn sub sm" onclick="if(confirm('削除しますか?'))delRec('${r.id}')">×</button></td></tr>`).join("")}</tbody></table>`
+   <td class="n">${r.result==="的中"?`<input class="pay" id="pay-${r.id}" inputmode="numeric" value="${r.payout}" onchange="setPayout('${r.id}',this.value)">`:"-"}</td><td><button class="btn sub sm" onclick="armed(this,()=>delRec('${r.id}'))">×</button></td></tr>`).join("")}</tbody></table>`
    :`<p class="hint">記録はまだありません。「買い目」タブから記録できます。</p>`;
   renderSummary();
 }
@@ -383,12 +446,22 @@ function barChart(m){
     return`<div style="margin:6px 0"><div class="row" style="justify-content:space-between;font-size:13px"><span>${esc(k)} <span class="hint">${a.n}件 的中${a.hit}</span></span><b class="${r>=1?"pos":"neg"}">${(r*100).toFixed(0)}%</b></div>
     <div style="position:relative;height:10px;background:var(--bg);border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:${r>=1?"var(--buy)":"var(--neg)"};opacity:.8"></div>
     <div style="position:absolute;left:${base}%;top:0;bottom:0;width:2px;background:var(--ink);opacity:.5" title="100%"></div></div></div>`}).join("")+`<p class="hint">縦線=回収率100%</p>`}
-function exportData(){const b=new Blob([JSON.stringify({records:S.records,bankroll:S.bankroll},null,1)],{type:"application/json"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="keiba-records.json";a.click()}
-function importData(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{try{const d=JSON.parse(t);if(Array.isArray(d.records)){S.records=d.records;if(d.bankroll)S.bankroll=d.bankroll;save();bindRace();renderRecords();alert("読み込みました")}}catch(e){alert("読み込めませんでした")}})}
+async function exportData(){
+  const json=JSON.stringify({records:S.records,bankroll:S.bankroll},null,1);
+  const dl=window.claude?.use?await window.claude.use("downloads").catch(()=>null):null;
+  if(dl){try{await dl.save({filename:"keiba-records.json",data:json});toast("書き出しました")}catch(e){if(e.code!=="declined")toast("書き出せませんでした")}return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([json],{type:"application/json"}));a.download="keiba-records.json";a.click()}
+function importData(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{
+  let d;try{d=JSON.parse(t)}catch(e){toast("JSONとして読み込めませんでした");return}
+  if(!Array.isArray(d.records)){toast("記録が見つかりませんでした");return}
+  const have=new Set(S.records.map(r=>r.id));let n=0;
+  for(const r of d.records){if(r&&r.id&&!have.has(r.id)){addRecord(r);n++}}
+  if(d.bankroll){S.bankroll=d.bankroll;$("bankroll").value=d.bankroll;saveBankroll()}
+  inp.value="";toast(n+"件を追加しました(重複はスキップ)")})}
 
 /* ---------- init ---------- */
-bindRace();renderHorses();if(S.last)renderResult();
+bindRace();renderHorses();if(S.last)renderResult();renderRecords();
+initStore().then(()=>{$("bankroll").value=S.bankroll;renderRecords()});
 </script>
 </body>
 </html>
