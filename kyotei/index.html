@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>逃がし率ナビ</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="逃がし率ナビ">
+<meta name="theme-color" content="#0f3b5f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <h1>逃がし率ナビ <small>競艇予想</small></h1>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-on" data-tab="predict" role="tab">予想</button>
+    <button class="tab" data-tab="history" role="tab">履歴</button>
+    <button class="tab" data-tab="help" role="tab">使い方</button>
+  </nav>
+</header>
+
+<main>
+  <!-- 予想 -->
+  <section id="tab-predict" class="pane is-on">
+    <div class="card race-meta">
+      <label>レース場<input id="venue" type="text" placeholder="例：住之江"></label>
+      <label>R<input id="raceNo" type="number" inputmode="numeric" min="1" max="12" placeholder="12"></label>
+      <div class="meta-btns">
+        <button id="btnSample" class="ghost">サンプル</button>
+        <button id="btnClear" class="ghost">クリア</button>
+      </div>
+    </div>
+
+    <div class="card weight-card">
+      <div class="weight-head">
+        <span>2号艇の逃がし率をどれだけ重視するか</span>
+        <strong id="weightVal">60%</strong>
+      </div>
+      <input id="weight" type="range" min="0" max="100" step="5" value="60">
+      <p class="hint">1号艇の「イン逃げ率」と2号艇の「逃がし率」を混ぜる割合です。100%で逃がし率だけで1号艇の1着確率を決めます。</p>
+    </div>
+
+    <div id="boats"></div>
+
+    <div id="result"></div>
+  </section>
+
+  <!-- 履歴 -->
+  <section id="tab-history" class="pane">
+    <div id="stats"></div>
+    <div id="historyList"></div>
+  </section>
+
+  <!-- 使い方 -->
+  <section id="tab-help" class="pane">
+    <div class="card prose">
+      <h2>逃がし率とは</h2>
+      <p>2号艇の選手が<b>2コースから出たとき、1号艇が1着になった割合</b>です。全国平均はおよそ55%前後。</p>
+      <ul>
+        <li><b>高い（65%以上）</b>… 2号艇が1号艇を逃がしやすい → イン逃げ信頼度アップ</li>
+        <li><b>低い（50%未満）</b>… 差し・まくりで1号艇をつぶすタイプ → イン不信、2号艇頭も</li>
+      </ul>
+      <h2>入力するデータ</h2>
+      <p>出走表やコース別成績が見られるサイトから写します。空欄でも全国平均の値で計算します。</p>
+      <ul>
+        <li><b>全員</b>：全国勝率、平均ST、モーター2連率</li>
+        <li><b>1号艇</b>：1コース1着率（イン逃げ率）</li>
+        <li><b>2号艇</b>：逃がし率、2コース差し率、2コースまくり率</li>
+        <li><b>3〜6号艇</b>：そのコースでの1着率</li>
+      </ul>
+      <h2>計算のしかた</h2>
+      <ol>
+        <li>1号艇の1着確率 ＝ 逃がし率 ×重視度 ＋ イン逃げ率 ×(1−重視度)</li>
+        <li>STの差、モーター、勝率の差、3号艇のST（2号艇の壁がもつか）で補正</li>
+        <li>1号艇が負ける分を、2〜6号艇の決まり手データと当日の機力で分け合う</li>
+        <li>2・3着は各艇の地力から計算し、3連単120通りの確率を出す</li>
+      </ol>
+      <h2>買い目の「必要オッズ」</h2>
+      <p>その買い目の確率から見て、<b>これより高いオッズなら長い目で見て得</b>という目安です。実際のオッズと比べて使ってください。</p>
+      <h2>履歴</h2>
+      <p>予想を保存して結果を入れると、的中率と「逃がし率の高さ別に1号艇が本当に逃げたか」がたまっていきます。重視度の調整に使えます。</p>
+      <p class="hint">この予想はあくまで参考です。舟券は無理のない範囲で楽しんでください。</p>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
